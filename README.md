@@ -64,6 +64,108 @@ bsub < 10_nanoasv.sh
 
 ---
 
+## Setup
+
+### 1. Clone the repository
+
+```bash
+git clone git@github.com:jnesme/NanoZotu.git
+cd NanoZotu
+```
+
+### 2. Install conda environments
+
+**Main environment** (steps 01–07) — follow the QIIME 2 amplicon distribution
+install instructions for your platform, then install additional tools:
+
+```bash
+# After creating qiime2-amplicon-2026.1 per QIIME 2 docs:
+conda activate qiime2-amplicon-2026.1
+conda install -c bioconda blast mafft fasttree
+```
+
+**usearch v12** — download the binary from https://drive5.com/usearch/ and place
+it on your `PATH` as `usearch`.
+
+**NanoASV environment** — follow the install instructions in the NanoASV repository:
+
+```bash
+git clone https://github.com/ImagoXV/NanoASV.git /path/to/NanoASV
+# Follow NanoASV README to create its conda environment
+```
+
+### 3. Download GTDB SSU reference files
+
+Download the following four files from the GTDB releases page
+(https://gtdb.ecogenomics.org/downloads) for your chosen GTDB release
+and place them in `db/gtdb/`:
+
+```
+db/gtdb/
+├── bac120_ssu_reps.fna.gz       # bacterial SSU representative sequences
+├── ar53_ssu_reps.fna.gz         # archaeal SSU representative sequences
+├── bac120_taxonomy.tsv.gz       # bacterial taxonomy table
+└── ar53_taxonomy.tsv.gz         # archaeal taxonomy table
+```
+
+```bash
+mkdir -p db/gtdb
+cd db/gtdb
+
+# Replace RXX with the GTDB release number (e.g. R226)
+wget https://data.gtdb.ecogenomics.org/releases/latest/genomic_files_reps/bac120_ssu_reps.fna.gz
+wget https://data.gtdb.ecogenomics.org/releases/latest/genomic_files_reps/ar53_ssu_reps.fna.gz
+wget https://data.gtdb.ecogenomics.org/releases/latest/bac120_taxonomy.tsv.gz
+wget https://data.gtdb.ecogenomics.org/releases/latest/ar53_taxonomy.tsv.gz
+cd ../..
+```
+
+### 4. Edit config.sh
+
+Open `config.sh` and update the system paths for your environment:
+
+```bash
+CONDA_ENV_MAIN="qiime2-amplicon-2026.1"   # name of your QIIME 2 env
+CONDA_ENV_NANOASV="NanoASV"               # name of your NanoASV env
+NANOASV_PATH="/path/to/NanoASV"           # absolute path to NanoASV clone
+```
+
+Update primers, size filter, and thresholds if your amplicon target differs
+from full-length 16S (V1–V9, 27F/1492R).
+
+### 5. Edit the two LSF scripts
+
+In `07_elusimicrobiota_tree.sh` and `10_nanoasv.sh`, set `PROJECT_DIR` to the
+absolute path of your project clone and update the `#BSUB` headers for your
+HPC environment (queue name, email, walltime):
+
+```bash
+# Change this line in both scripts:
+PROJECT_DIR="/absolute/path/to/NanoZotu"
+
+# Update these headers for your HPC:
+#BSUB -q your_queue
+#BSUB -u your@email.com
+```
+
+### 6. Prepare raw data
+
+Place basecaller output in `fastq_pass/` with one subdirectory per barcode:
+
+```
+fastq_pass/
+├── barcode08/
+│   ├── chunk_0.fastq.gz
+│   └── chunk_1.fastq.gz
+├── barcode16/
+│   └── ...
+```
+
+The pipeline starts at step 01 which merges the per-barcode chunks into
+`fastq_merged/barcode*.fastq.gz`.
+
+---
+
 ## Configuration
 
 All project-specific parameters live in **`config.sh`** in the project root. Edit this file before running any script on a new dataset.
