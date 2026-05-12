@@ -1,0 +1,4 @@
+,ID,Refs,Origin,Sampling_Date,Measure_1,Measure_2
+barcode08,1,Sample01,your_experiment,2026-01-01,treatment_A,timepoint_1
+barcode16,2,Sample02,your_experiment,2026-01-01,treatment_A,timepoint_2
+barcode23,3,Sample03,your_experiment,2026-01-01,treatment_B,timepoint_1
