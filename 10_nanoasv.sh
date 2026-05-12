@@ -82,12 +82,15 @@ echo "  Staged $n_barcodes barcodes"
 # --- Metadata ---
 if [[ ! -s "$METADATA_CSV" ]]; then
     echo "  WARNING: $METADATA_CSV not found — generating stub metadata."
+    echo "  Edit $METADATA_CSV with real sample information before using Phyloseq output."
     mkdir -p "$(dirname "$METADATA_CSV")"
     {
-        echo ",SampleID"
+        echo ",ID,Refs,Origin,Sampling_Date,Measure_1,Measure_2"
+        i=1
         for gz in "$MERGED_DIR"/barcode*.fastq.gz; do
             barcode=$(basename "$gz" .fastq.gz)
-            echo "$barcode,$barcode"
+            echo "$barcode,$i,Sample$(printf '%02d' $i),Unknown,01/01/00,$i,$i"
+            (( i++ )) || true
         done
     } > "$METADATA_CSV"
 fi
@@ -99,6 +102,20 @@ echo "  Metadata: $METADATA_CSV"
 echo ""
 echo "=== Running NanoASV (GTDB SSU + ZOTUs) ==="
 cd "$OUT_DIR"
+
+# Snakemake has no --cores flag in NanoASV's run.sh, so it defaults to all
+# available CPUs. The minimap2 rule has no threads: declaration, so each job
+# silently uses 4 threads. Inject a snakemake wrapper onto PATH that appends
+# --cores $THREADS, capping concurrent jobs so total CPU use = THREADS × 4
+# = LSB_DJOB_NUMPROC.
+_TMPBIN=$(mktemp -d)
+cat > "$_TMPBIN/snakemake" << WRAPPER
+#!/bin/bash
+exec "$(command -v snakemake)" "\$@" --cores $THREADS
+WRAPPER
+chmod +x "$_TMPBIN/snakemake"
+export PATH="$_TMPBIN:$PATH"
+trap 'rm -rf "$_TMPBIN"' EXIT
 
 bash "$NANOASV_PATH/workflow/run.sh" \
     --dir         "$INPUT_STAGE" \
