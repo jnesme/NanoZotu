@@ -1,16 +1,18 @@
 #!/bin/bash
-# Augment the GTDB NanoASV database with the 14 project ZOTUs (UNOISE3, minsize=3).
+# Augment the GTDB NanoASV database with ZOTUs whose sequences are not already
+# represented in GTDB (pident < 100%). ZOTUs at 100% pident are skipped — the
+# identical GTDB entry is sufficient and injection would cause minimap2 to split
+# reads between two identical entries, distorting relative abundances.
 #
-# Adding ZOTUs to the reference database ensures that project organisms map to their
-# exact consensus sequences at ~100% identity, rather than to the nearest GTDB
-# representative at lower identity. Without this step, novel organisms (e.g.
-# Elusimicrobiota at 88% to GWA2-66-18) map spuriously to unrelated references —
-# minimap2 does not refuse to map at low identity.
-#
-# Taxonomy labelling follows the 97% pident threshold used in script 06:
-#   pident >= 97%  → full GTDB taxonomy (known organism)
-#   pident <  97%  → confident to family; genus+species → unclassified_<family>
-#                    (Zotu1/2/12/14: unclassified_UBA9628)
+# Injection + taxonomy labelling rules:
+#   pident == 100%                         → skip (GTDB entry sufficient)
+#   pident >= BLAST_SPECIES_THRESHOLD (98.7%), < 100%
+#                                          → inject, full GTDB taxonomy
+#   pident >= BLAST_IDENTITY_THRESHOLD (97%), < 98.7%
+#                                          → inject, genus only (Genus sp.)
+#   pident <  BLAST_IDENTITY_THRESHOLD (97%)
+#                                          → inject, unclassified_<family>
+#                                            (verify manually + tree in step 07)
 #
 # Prerequisite: run 08_build_gtdb_nanoasv.sh first.
 #
@@ -38,15 +40,16 @@ fi
 
 echo "=== Augmenting GTDB NanoASV database with project ZOTUs ==="
 
-ZOTU_BLOCK=$(python3 - "$ZOTU_FASTA" "$TAXONOMY_TSV" "$BLAST_IDENTITY_THRESHOLD" << 'PYEOF'
+ZOTU_BLOCK=$(python3 - "$ZOTU_FASTA" "$TAXONOMY_TSV" "$BLAST_IDENTITY_THRESHOLD" "$BLAST_SPECIES_THRESHOLD" << 'PYEOF'
 import sys
 import csv
 
-fasta_in = sys.argv[1]
-tax_tsv  = sys.argv[2]
+fasta_in         = sys.argv[1]
+tax_tsv          = sys.argv[2]
+PIDENT_THRESHOLD = float(sys.argv[3])   # 97  — genus minimum
+SPECIES_THRESHOLD = float(sys.argv[4])  # 98.7 — species minimum (Kim et al. 2014)
 
-PIDENT_THRESHOLD = float(sys.argv[3])
-
+skipped = []
 tax = {}
 with open(tax_tsv) as f:
     reader = csv.DictReader(f, delimiter='\t')
@@ -55,21 +58,29 @@ with open(tax_tsv) as f:
         gtdb   = row['taxonomy']
         pident = float(row['pident'])
 
-        # Strip GTDB rank prefixes
+        if pident == 100.0:
+            skipped.append(zotu)
+            continue  # exact sequence already in GTDB — skip to avoid read splitting
+
         parts = [p.split('__', 1)[1] if '__' in p else p for p in gtdb.split(';')]
 
         if pident < PIDENT_THRESHOLD:
-            # Below 97%: trust family from best BLAST hit, zero out genus+species.
-            # This is an assumption — 16S family-level threshold is ~92-95%, so at
-            # e.g. 88% the family call may also be uncertain. Cross-check
-            # taxonomy_unknown.tsv manually and verify with the phylogenetic tree
-            # (07_elusimicrobiota_tree.sh) for any unknowns in your dataset.
+            # Novel organism — family call may also be uncertain at low pident.
+            # Cross-check taxonomy_unknown.tsv manually and verify with the
+            # phylogenetic tree (07_elusimicrobiota_tree.sh) for any unknowns.
             family = parts[4] if len(parts) > 4 else 'unclassified'
             label  = f'unclassified_{family}'
             parts[5] = label
             parts[6] = label
+        elif pident < SPECIES_THRESHOLD:
+            # Same genus, species uncertain — keep genus, truncate species
+            genus    = parts[5] if len(parts) > 5 else 'unclassified'
+            parts[6] = f'{genus} sp.'
 
         tax[zotu] = ';'.join(parts)
+
+if skipped:
+    print(f'Skipped (100% pident): {", ".join(skipped)}', file=sys.stderr)
 
 header    = None
 seq_parts = []
@@ -98,16 +109,22 @@ PYEOF
 )
 
 N_ZOTUS=$(echo "$ZOTU_BLOCK" | grep -c "^>" || true)
+N_SKIPPED=$(python3 -c "
+import csv
+with open('$TAXONOMY_TSV') as f:
+    print(sum(1 for r in csv.DictReader(f, delimiter='\t') if float(r['pident']) == 100.0))
+")
 
 echo ""
-echo "  ZOTU entries:"
+echo "  Injected ($N_ZOTUS):"
 echo "$ZOTU_BLOCK" | grep "^>" | sed 's/^/    /'
 echo ""
 
 cat "$BASE_DB" <(echo "$ZOTU_BLOCK") > "$OUT_DB"
 
 echo "  Base DB:   $(grep -c "^>" "$BASE_DB") sequences"
-echo "  ZOTUs:     $N_ZOTUS"
+echo "  Skipped:   $N_SKIPPED (100% pident — GTDB entry sufficient)"
+echo "  Injected:  $N_ZOTUS"
 echo "  Output:    $(grep -c "^>" "$OUT_DB") sequences total"
 echo "  File:      $OUT_DB"
 echo ""

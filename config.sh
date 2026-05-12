@@ -49,7 +49,8 @@ MINSIZE_WORKING=3       # working threshold — used by steps 05, 06, 07, 09, 10
 # Taxonomy  (steps 06 and 09)
 # =============================================================================
 
-BLAST_IDENTITY_THRESHOLD=97    # minimum % identity for confident species assignment
+BLAST_IDENTITY_THRESHOLD=97    # minimum % identity for genus-level assignment
+BLAST_SPECIES_THRESHOLD=98.7   # minimum % identity for confident species-level assignment (Kim et al. 2014)
 BLAST_EVALUE_THRESHOLD="1e-10" # maximum e-value for confident assignment
 
 # =============================================================================
