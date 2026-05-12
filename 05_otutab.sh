@@ -12,7 +12,15 @@
 #BSUB -o logs/otutab_%J.out
 #BSUB -e logs/otutab_%J.err
 
-# Generate per-sample ZOTU abundance table by mapping pooled reads to ZOTUs.
+# [OPTIONAL — QC step] Generate per-sample ZOTU abundance table by mapping
+# pooled reads to ZOTUs. Not required for the NanoASV branch (steps 08–10).
+#
+# Primary uses:
+#   1. QC: the read mapping rate here should agree with the fraction of reads
+#      classified by NanoASV — a large discrepancy indicates a pipeline issue.
+#   2. minsize sweep: run with different ZOTU FASTAs to compare how threshold
+#      choice affects abundance profiles before committing to MINSIZE_WORKING.
+#
 # usearch -otutab assigns reads to samples via the "sample=" tag in read headers
 # (added during pooling in 03_dereplicate.sh).
 #
