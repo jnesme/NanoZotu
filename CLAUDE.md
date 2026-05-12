@@ -11,8 +11,16 @@ MSc thesis project (Asta). Full-length 16S rRNA amplicon sequencing of the micro
 - 21 barcoded samples (barcode08 to barcode95, non-contiguous)
 
 ## Environment
-- Conda: qiime2-amplicon-2026.1 (must be activated in all scripts)
+- Conda: qiime2-amplicon-2026.1 (steps 01–07), NanoASV (step 10)
 - Key tools: cutadapt (>=4.0 for --revcomp), usearch v12
+
+## Configuration
+All project-specific parameters are in config.sh (project root). Scripts source it automatically.
+Key parameters: PRIMER_FWD/REV/RC_REV, MIN_LEN/MAX_LEN, MINSIZE_MIN/MAX/WORKING,
+BLAST_IDENTITY_THRESHOLD, BLAST_EVALUE_THRESHOLD, NANOASV_MINAB/SUBSAMPLING/SAM_QUAL,
+CONDA_ENV_MAIN, CONDA_ENV_NANOASV, NANOASV_PATH.
+LSF scripts (07, 10) additionally require PROJECT_DIR hardcoded as an absolute path in the script body.
+#BSUB headers (queue, email) must also be edited directly in 07 and 10.
 
 ## Pipeline overview
 01 → 02 → 03 → 04 → 05 → 06 → 07
