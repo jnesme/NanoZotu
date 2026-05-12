@@ -37,7 +37,7 @@ set -euo pipefail
 
 # PROJECT_DIR must be an absolute path — LSF copies this script to /tmp before
 # execution, so relative paths and ${BASH_SOURCE[0]} are not reliable.
-PROJECT_DIR="/work3/josne/Projects/AstaMSc_GRF_Igalbana"
+PROJECT_DIR="/work3/josne/github/NanoZotu"
 source "$PROJECT_DIR/config.sh"
 
 source "$(conda info --base)/etc/profile.d/conda.sh"

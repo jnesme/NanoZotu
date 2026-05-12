@@ -59,7 +59,11 @@ with open(tax_tsv) as f:
         parts = [p.split('__', 1)[1] if '__' in p else p for p in gtdb.split(';')]
 
         if pident < PIDENT_THRESHOLD:
-            # Novel below genus: confident to family only
+            # Below 97%: trust family from best BLAST hit, zero out genus+species.
+            # This is an assumption — 16S family-level threshold is ~92-95%, so at
+            # e.g. 88% the family call may also be uncertain. Cross-check
+            # taxonomy_unknown.tsv manually and verify with the phylogenetic tree
+            # (07_elusimicrobiota_tree.sh) for any unknowns in your dataset.
             family = parts[4] if len(parts) > 4 else 'unclassified'
             label  = f'unclassified_{family}'
             parts[5] = label
