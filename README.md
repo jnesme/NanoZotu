@@ -64,6 +64,51 @@ bsub < 10_nanoasv.sh
 
 ---
 
+## Configuration
+
+All project-specific parameters live in **`config.sh`** in the project root. Edit this file before running any script on a new dataset.
+
+```bash
+# System
+CONDA_ENV_MAIN="qiime2-amplicon-2026.1"   # conda env for steps 01–07
+CONDA_ENV_NANOASV="NanoASV"               # conda env for step 10
+NANOASV_PATH="/work3/josne/github/NanoASV"
+
+# Primers (step 02)
+PRIMER_FWD="AGRGTTYGATYMTGGCTCAG"         # 27F
+PRIMER_REV="RGYTACCTTGTTACGACTT"          # 1492R (reference)
+PRIMER_RC_REV="AAGTCGTAACAAGGTARCY"       # reverse complement of 1492R (cutadapt -a)
+
+# Read QC (step 02)
+MIN_LEN=1300
+MAX_LEN=1800
+
+# UNOISE3 (step 04)
+MINSIZE_MIN=1
+MINSIZE_MAX=8
+MINSIZE_WORKING=3    # working threshold — propagates to steps 05, 06, 07, 09, 10
+
+# Taxonomy (steps 06 and 09)
+BLAST_IDENTITY_THRESHOLD=97
+BLAST_EVALUE_THRESHOLD="1e-10"
+
+# NanoASV (step 10)
+NANOASV_MINAB=2
+NANOASV_SUBSAMPLING=100000
+NANOASV_SAM_QUAL=0
+```
+
+Scripts 01–09 source `config.sh` automatically relative to their own location. The two LSF scripts (`07_elusimicrobiota_tree.sh`, `10_nanoasv.sh`) additionally require `PROJECT_DIR` to be set as an absolute path — this is the **only line that must be edited directly in those scripts**, since LSF copies them to `/tmp` before execution and relative paths are not reliable:
+
+```bash
+# In 07_elusimicrobiota_tree.sh and 10_nanoasv.sh — change this line:
+PROJECT_DIR="/work3/josne/Projects/AstaMSc_GRF_Igalbana"
+```
+
+The `#BSUB` headers (queue, email, resources) in scripts 07 and 10 also require manual editing for your HPC environment.
+
+---
+
 ## Dependencies
 
 ### Conda environments
@@ -111,6 +156,7 @@ conda activate qiime2-amplicon-2026.1
 │   └── nanoasv/output/            # NanoASV outputs including Phyloseq (step 10)
 ├── supplementary/            # rrnDB scripts (future copy-number correction)
 ├── logs/
+├── config.sh                 # ← edit this for each new project
 ├── 01_concatenate_barcodes.sh
 ├── 02_trim_primers.sh
 ├── 03_dereplicate.sh
