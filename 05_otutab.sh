@@ -3,8 +3,8 @@
 #BSUB -q hpcspecial
 #BSUB -J otutab
 #BSUB -n 20
-#BSUB -R "span[hosts=1] rusage[mem=8GB]"
-#BSUB -M 8500MB
+#BSUB -R "span[hosts=1] rusage[mem=1GB]"
+#BSUB -M 1000MB
 #BSUB -W 1:00
 #BSUB -u jnesme@gmail.com
 #BSUB -B
