@@ -40,7 +40,11 @@ export NANOASV_PATH="/work3/josne/github/NanoASV"
 source /work3/josne/miniconda3/etc/profile.d/conda.sh
 conda activate NanoASV
 
-THREADS=$LSB_DJOB_NUMPROC
+# minimap2 has no threads: declaration in NanoASV's snakefile, so Snakemake treats each
+# barcode job as 1-thread and runs --num-process jobs in parallel. minimap2 defaults to
+# -t 4, so actual CPU use is num-process × 4. Divide allocated CPUs by 4 to stay within
+# the LSF allocation and avoid node oversubscription.
+THREADS=$(( LSB_DJOB_NUMPROC / 4 ))
 
 PROJECT_DIR="/work3/josne/Projects/AstaMSc_GRF_Igalbana"
 MERGED_DIR="$PROJECT_DIR/fastq_merged"
