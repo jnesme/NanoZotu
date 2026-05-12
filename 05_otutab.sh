@@ -1,43 +1,57 @@
-#!/usr/bin/env bash
+#!/bin/bash
+### General options
+#BSUB -q hpcspecial
+#BSUB -J otutab
+#BSUB -n 20
+#BSUB -R "span[hosts=1] rusage[mem=8GB]"
+#BSUB -M 8500MB
+#BSUB -W 1:00
+#BSUB -u jnesme@gmail.com
+#BSUB -B
+#BSUB -N
+#BSUB -o logs/otutab_%J.out
+#BSUB -e logs/otutab_%J.err
+
 # Generate per-sample ZOTU abundance table by mapping pooled reads to ZOTUs.
 # usearch -otutab assigns reads to samples via the "sample=" tag in read headers
 # (added during pooling in 03_dereplicate.sh).
 #
-# Usage: bash 05_otutab.sh <zotus.fasta>
+# Defaults to pooled/zotus_minsize${MINSIZE_WORKING}.fasta from config.sh.
+# Override by passing a ZOTU FASTA as argument (interactive use only):
+#   bash 05_otutab.sh pooled/zotus_minsize5.fasta
 #
-# Input:  pooled/all_samples.fastq  (pooled reads from 03_dereplicate.sh)
-#         <zotus.fasta>             (ASV sequences from 04_unoise3.sh, e.g. pooled/zotus_minsize3.fasta)
-# Output: results/zotu_table.txt    (samples x ZOTUs count matrix)
+# Input:  pooled/all_samples.fastq
+#         pooled/zotus_minsize${MINSIZE_WORKING}.fasta  (or argument)
+# Output: results/zotu_table_zotus_minsize${MINSIZE_WORKING}.txt
+#
+# Usage: bsub < 05_otutab.sh
 
 set -euo pipefail
 
-if [[ $# -ne 1 ]]; then
-    echo "Usage: bash 05_otutab.sh <zotus.fasta>" >&2
-    echo "  e.g. bash 05_otutab.sh pooled/zotus_minsize3.fasta" >&2
-    exit 1
-fi
+# PROJECT_DIR must be an absolute path — LSF copies this script to /tmp before
+# execution, so relative paths and ${BASH_SOURCE[0]} are not reliable.
+PROJECT_DIR="/work3/josne/github/NanoZotu"
+source "$PROJECT_DIR/config.sh"
 
-source "$(dirname "${BASH_SOURCE[0]}")/config.sh"
-
-# Activate conda environment
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate "$CONDA_ENV_MAIN"
 
-POOLED_DIR="pooled"
-RESULTS_DIR="results"
-LOG_DIR="logs/otutab"
+THREADS=$LSB_DJOB_NUMPROC
+
+POOLED_DIR="$PROJECT_DIR/pooled"
+RESULTS_DIR="$PROJECT_DIR/results"
+LOG_DIR="$PROJECT_DIR/logs/otutab"
 
 mkdir -p "$RESULTS_DIR" "$LOG_DIR"
 
 POOLED_FASTQ="$POOLED_DIR/all_samples.fastq"
-ZOTUS_FASTA="$1"
-# Name the output table after the input ZOTU file
+ZOTUS_FASTA="${1:-$POOLED_DIR/zotus_minsize${MINSIZE_WORKING}.fasta}"
 ZOTU_TABLE="$RESULTS_DIR/zotu_table_$(basename "${ZOTUS_FASTA%.fasta}").txt"
 LOG="$LOG_DIR/otutab.log"
 
-THREADS="${THREADS:-$(nproc)}"
-
-echo "=== Generating ZOTU table (threads: $THREADS) ==="
+echo "=== Generating ZOTU table ==="
+echo "  ZOTUs:   $ZOTUS_FASTA"
+echo "  Threads: $THREADS"
 
 usearch \
     -otutab "$POOLED_FASTQ" \

@@ -46,10 +46,10 @@ bash 08_build_gtdb_nanoasv.sh
 
 # Step 2: de novo ZOTU pipeline
 bash 01_concatenate_barcodes.sh
-bash 02_trim_primers.sh
+bsub < 02_trim_primers.sh           # cluster job: 21 barcodes x 4 threads
 bash 03_dereplicate.sh
 bash 04_unoise3.sh
-bash 05_otutab.sh pooled/zotus_minsize3.fasta
+bsub < 05_otutab.sh                 # cluster job: multi-threaded usearch otutab
 bash 06_taxonomy.sh pooled/zotus_minsize3.fasta   # produces taxonomy_all.tsv
 
 # Step 3: inject ZOTUs + their BLAST taxonomy into the NanoASV database (depends on step 06)
