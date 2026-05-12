@@ -35,18 +35,21 @@
 
 set -euo pipefail
 
-export NANOASV_PATH="/work3/josne/github/NanoASV"
+# PROJECT_DIR must be an absolute path — LSF copies this script to /tmp before
+# execution, so relative paths and ${BASH_SOURCE[0]} are not reliable.
+PROJECT_DIR="/work3/josne/Projects/AstaMSc_GRF_Igalbana"
+source "$PROJECT_DIR/config.sh"
 
-source /work3/josne/miniconda3/etc/profile.d/conda.sh
-conda activate NanoASV
+source "$(conda info --base)/etc/profile.d/conda.sh"
+conda activate "$CONDA_ENV_NANOASV"
+
+export NANOASV_PATH
 
 # minimap2 has no threads: declaration in NanoASV's snakefile, so Snakemake treats each
 # barcode job as 1-thread and runs --num-process jobs in parallel. minimap2 defaults to
 # -t 4, so actual CPU use is num-process × 4. Divide allocated CPUs by 4 to stay within
 # the LSF allocation and avoid node oversubscription.
 THREADS=$(( LSB_DJOB_NUMPROC / 4 ))
-
-PROJECT_DIR="/work3/josne/Projects/AstaMSc_GRF_Igalbana"
 MERGED_DIR="$PROJECT_DIR/fastq_merged"
 INPUT_STAGE="$PROJECT_DIR/results/nanoasv/input_stage"
 OUT_DIR="$PROJECT_DIR/results/nanoasv/output"
@@ -103,10 +106,10 @@ bash "$NANOASV_PATH/workflow/run.sh" \
     --num-process "$THREADS" \
     --database    "$DATABASE" \
     --metadata    "$INPUT_STAGE" \
-    --minab       2 \
-    --subsampling 100000 \
+    --minab       "$NANOASV_MINAB" \
+    --subsampling "$NANOASV_SUBSAMPLING" \
     --no-r-cleaning \
-    --sam-qual    0
+    --sam-qual    "$NANOASV_SAM_QUAL"
 
 echo ""
 echo "Done. Results in: $OUT_DIR"

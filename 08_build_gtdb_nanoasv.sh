@@ -24,10 +24,11 @@
 
 set -euo pipefail
 
-PROJECT_DIR="/work3/josne/Projects/AstaMSc_GRF_Igalbana"
-BAC_GZ="$PROJECT_DIR/db/gtdb/bac120_ssu_reps.fna.gz"
-ARC_GZ="$PROJECT_DIR/db/gtdb/ar53_ssu_reps.fna.gz"
-OUT_FASTA="$PROJECT_DIR/db/gtdb/SINGLELINE_GTDB_SSU_nanoasv.fasta"
+source "$(dirname "${BASH_SOURCE[0]}")/config.sh"
+
+BAC_GZ="db/gtdb/bac120_ssu_reps.fna.gz"
+ARC_GZ="db/gtdb/ar53_ssu_reps.fna.gz"
+OUT_FASTA="db/gtdb/SINGLELINE_GTDB_SSU_nanoasv.fasta"
 
 echo "=== Converting GTDB SSU to NanoASV format ==="
 echo "  Bacterial SSU: $BAC_GZ"

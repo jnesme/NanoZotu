@@ -14,9 +14,11 @@
 
 set -euo pipefail
 
+source "$(dirname "${BASH_SOURCE[0]}")/config.sh"
+
 # Activate conda environment
 source "$(conda info --base)/etc/profile.d/conda.sh"
-conda activate qiime2-amplicon-2026.1
+conda activate "$CONDA_ENV_MAIN"
 
 INPUT_DIR="fastq_merged"
 OUTPUT_DIR="fastq_trimmed"
@@ -33,13 +35,6 @@ echo "Using $THREADS total threads: $BARCODE_JOBS barcodes x $CUTADAPT_THREADS t
 
 mkdir -p "$OUTPUT_DIR" "$LOG_DIR"
 
-# Primer sequences
-FWD="AGRGTTYGATYMTGGCTCAG"
-RC_REV="AAGTCGTAACAAGGTARCY"    # reverse complement of REV (RGYTACCTTGTTACGACTT)
-
-MIN_LEN=1300
-MAX_LEN=1800
-
 trim_barcode() {
     local input_file="$1"
     local barcode
@@ -51,8 +46,8 @@ trim_barcode() {
 
     cutadapt \
         -j "$CUTADAPT_THREADS" \
-        -g "$FWD" \
-        -a "$RC_REV" \
+        -g "$PRIMER_FWD" \
+        -a "$PRIMER_RC_REV" \
         --revcomp \
         --discard-untrimmed \
         --minimum-length "$MIN_LEN" \
@@ -74,7 +69,7 @@ trim_barcode() {
 }
 
 export -f trim_barcode
-export OUTPUT_DIR LOG_DIR FWD RC_REV MIN_LEN MAX_LEN CUTADAPT_THREADS
+export OUTPUT_DIR LOG_DIR PRIMER_FWD PRIMER_RC_REV MIN_LEN MAX_LEN CUTADAPT_THREADS
 
 # Run barcodes in parallel (GNU parallel preferred, fallback to xargs)
 if command -v parallel &>/dev/null; then

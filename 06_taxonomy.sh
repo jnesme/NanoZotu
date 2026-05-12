@@ -27,9 +27,11 @@ if [[ $# -ne 1 ]]; then
     exit 1
 fi
 
+source "$(dirname "${BASH_SOURCE[0]}")/config.sh"
+
 # Activate conda environment
 source "$(conda info --base)/etc/profile.d/conda.sh"
-conda activate qiime2-amplicon-2026.1
+conda activate "$CONDA_ENV_MAIN"
 
 ZOTUS_FASTA="$1"
 ZOTU_BASE=$(basename "${ZOTUS_FASTA%.fasta}")
@@ -50,8 +52,6 @@ COMBINED_SSU="$DB_DIR/gtdb_ssu_combined.fna"
 COMBINED_TAX="$DB_DIR/gtdb_taxonomy_combined.tsv"
 
 THREADS="${THREADS:-$(nproc)}"
-IDENTITY_THRESHOLD=97   # minimum % identity for confident assignment
-EVALUE_THRESHOLD=1e-10  # minimum e-value for confident assignment
 
 # --- Step 1: Build combined reference (once) ---
 if [[ ! -f "$COMBINED_SSU" ]]; then
@@ -102,7 +102,7 @@ echo "  BLASTn done."
 
 # --- Step 4: Parse results and assign taxonomy ---
 python3 - "$BLAST_OUT" "$COMBINED_TAX" "$ZOTUS_FASTA" \
-          "$RESULTS_DIR" "$IDENTITY_THRESHOLD" "$EVALUE_THRESHOLD" << 'PYEOF'
+          "$RESULTS_DIR" "$BLAST_IDENTITY_THRESHOLD" "$BLAST_EVALUE_THRESHOLD" << 'PYEOF'
 import sys
 import csv
 

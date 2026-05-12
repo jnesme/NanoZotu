@@ -15,9 +15,11 @@
 
 set -euo pipefail
 
+source "$(dirname "${BASH_SOURCE[0]}")/config.sh"
+
 # Activate conda environment
 source "$(conda info --base)/etc/profile.d/conda.sh"
-conda activate qiime2-amplicon-2026.1
+conda activate "$CONDA_ENV_MAIN"
 
 INPUT_DIR="fastq_trimmed"
 POOLED_DIR="pooled"

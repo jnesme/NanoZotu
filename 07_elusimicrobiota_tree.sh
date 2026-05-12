@@ -23,16 +23,20 @@
 
 set -euo pipefail
 
+# PROJECT_DIR must be an absolute path — LSF copies this script to /tmp before
+# execution, so relative paths and ${BASH_SOURCE[0]} are not reliable.
+PROJECT_DIR="/work3/josne/Projects/AstaMSc_GRF_Igalbana"
+source "$PROJECT_DIR/config.sh"
+
 source "$(conda info --base)/etc/profile.d/conda.sh"
-conda activate qiime2-amplicon-2026.1
+conda activate "$CONDA_ENV_MAIN"
 
 THREADS=$LSB_DJOB_NUMPROC
 
-PROJECT_DIR="/work3/josne/Projects/AstaMSc_GRF_Igalbana"
 GTDB_TAX="$PROJECT_DIR/db/gtdb/gtdb_taxonomy_combined.tsv"
 GTDB_SSU="$PROJECT_DIR/db/gtdb/bac120_ssu_reps.fna.gz"
 GTDB_AR_SSU="$PROJECT_DIR/db/gtdb/ar53_ssu_reps.fna.gz"
-ZOTUS_FASTA="$PROJECT_DIR/pooled/zotus_minsize3.fasta"
+ZOTUS_FASTA="$PROJECT_DIR/pooled/zotus_minsize${MINSIZE_WORKING}.fasta"
 
 TREE_DIR="$PROJECT_DIR/results/elusimicrobiota_tree"
 LOG_DIR="$PROJECT_DIR/logs/elusimicrobiota_tree"

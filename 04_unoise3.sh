@@ -8,9 +8,11 @@
 
 set -euo pipefail
 
+source "$(dirname "${BASH_SOURCE[0]}")/config.sh"
+
 # Activate conda environment
 source "$(conda info --base)/etc/profile.d/conda.sh"
-conda activate qiime2-amplicon-2026.1
+conda activate "$CONDA_ENV_MAIN"
 
 POOLED_DIR="pooled"
 LOG_DIR="logs/unoise3"
@@ -21,12 +23,12 @@ INPUT_FASTA="$POOLED_DIR/all_samples_derep.fasta"
 
 SWEEP_REPORT="$POOLED_DIR/minsize_sweep.txt"
 
-echo "=== UNOISE3 minsize sweep (1 -> 8) ==="
+echo "=== UNOISE3 minsize sweep ($MINSIZE_MIN -> $MINSIZE_MAX) ==="
 echo ""
 printf "%-10s %s\n" "minsize" "ZOTUs" | tee "$SWEEP_REPORT"
 printf "%-10s %s\n" "-------" "-----" | tee -a "$SWEEP_REPORT"
 
-for minsize in $(seq 1 8); do
+for minsize in $(seq "$MINSIZE_MIN" "$MINSIZE_MAX"); do
     out_fasta="$POOLED_DIR/zotus_minsize${minsize}.fasta"
     log="$LOG_DIR/unoise3_minsize${minsize}.log"
 

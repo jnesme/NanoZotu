@@ -23,11 +23,12 @@
 
 set -euo pipefail
 
-PROJECT_DIR="/work3/josne/Projects/AstaMSc_GRF_Igalbana"
-BASE_DB="$PROJECT_DIR/db/gtdb/SINGLELINE_GTDB_SSU_nanoasv.fasta"
-ZOTU_FASTA="$PROJECT_DIR/pooled/zotus_minsize3.fasta"
-TAXONOMY_TSV="$PROJECT_DIR/results/taxonomy_zotus_minsize3/taxonomy_all.tsv"
-OUT_DB="$PROJECT_DIR/db/gtdb/SINGLELINE_GTDB_SSU_plus_zotus.fasta"
+source "$(dirname "${BASH_SOURCE[0]}")/config.sh"
+
+BASE_DB="db/gtdb/SINGLELINE_GTDB_SSU_nanoasv.fasta"
+ZOTU_FASTA="pooled/zotus_minsize${MINSIZE_WORKING}.fasta"
+TAXONOMY_TSV="results/taxonomy_zotus_minsize${MINSIZE_WORKING}/taxonomy_all.tsv"
+OUT_DB="db/gtdb/SINGLELINE_GTDB_SSU_plus_zotus.fasta"
 
 if [[ ! -s "$BASE_DB" ]]; then
     echo "ERROR: GTDB NanoASV base database not found at $BASE_DB"
@@ -37,14 +38,14 @@ fi
 
 echo "=== Augmenting GTDB NanoASV database with project ZOTUs ==="
 
-ZOTU_BLOCK=$(python3 - "$ZOTU_FASTA" "$TAXONOMY_TSV" << 'PYEOF'
+ZOTU_BLOCK=$(python3 - "$ZOTU_FASTA" "$TAXONOMY_TSV" "$BLAST_IDENTITY_THRESHOLD" << 'PYEOF'
 import sys
 import csv
 
 fasta_in = sys.argv[1]
 tax_tsv  = sys.argv[2]
 
-PIDENT_THRESHOLD = 97.0
+PIDENT_THRESHOLD = float(sys.argv[3])
 
 tax = {}
 with open(tax_tsv) as f:
