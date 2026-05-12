@@ -41,20 +41,24 @@ MSc thesis project (Asta). De novo ZOTU analysis of full-length 16S rRNA gene se
 
 Quick start:
 ```bash
-# One-time database setup
+# Step 1: build GTDB NanoASV base database (needs only db/gtdb/*.fna.gz — run once)
 bash 08_build_gtdb_nanoasv.sh
-bash 09_augment_nanoasv_db.sh
 
-# Core pipeline
+# Step 2: de novo ZOTU pipeline
 bash 01_concatenate_barcodes.sh
 bash 02_trim_primers.sh
 bash 03_dereplicate.sh
 bash 04_unoise3.sh
 bash 05_otutab.sh pooled/zotus_minsize3.fasta
-bash 06_taxonomy.sh pooled/zotus_minsize3.fasta
+bash 06_taxonomy.sh pooled/zotus_minsize3.fasta   # produces taxonomy_all.tsv
+
+# Step 3: inject ZOTUs + their BLAST taxonomy into the NanoASV database (depends on step 06)
+bash 09_augment_nanoasv_db.sh
+
+# Step 4: optional phylogenetic placement of novel ZOTUs
 bsub < 07_elusimicrobiota_tree.sh
 
-# NanoASV (cluster job)
+# Step 5: NanoASV → Phyloseq (cluster job)
 bsub < 10_nanoasv.sh
 ```
 
@@ -303,6 +307,30 @@ result and demonstrates the novelty is real divergence, not a pipeline artifact.
 
 ---
 
+---
+
+### NanoASV branch — overview (steps 08–10)
+
+Steps 08–10 produce a Phyloseq R object from the same reads, using NanoASV's Snakemake
+workflow. The approach combines the de novo ZOTUs from step 04 with reference-based read
+classification:
+
+1. **Step 08** converts the GTDB SSU representative sequences into the singleline FASTA
+   format required by NanoASV. This is the reference database that minimap2 will map reads against.
+
+2. **Step 09** takes the ZOTUs from step 04 and injects them — labelled with their step 06
+   GTDB taxonomy — into the database built in step 08. This is the critical step: without it,
+   minimap2 maps reads from novel organisms (e.g. Elusimicrobiota at 88% identity) to whatever
+   distant reference produces the best local alignment score, giving wrong taxonomy. With the
+   ZOTUs in the database, those reads map to their own ZOTU at ~100% identity, outcompeting
+   any spurious hit.
+
+3. **Step 10** runs NanoASV against the augmented database and exports a Phyloseq Rdata object.
+
+Steps 08 and 09 are one-time setup per project. Step 09 depends on step 06 having been run.
+
+---
+
 ### Step 08 — Build GTDB NanoASV database
 
 Converts GTDB SSU representative sequences (~93k bacterial + archaeal) into the singleline
@@ -323,19 +351,29 @@ fields. Output is uncompressed because NanoASV's format validation uses plain `g
 
 ### Step 09 — Augment NanoASV database with project ZOTUs
 
-Appends the 14 project ZOTUs to the GTDB NanoASV database. Run once after step 08.
+Appends the project ZOTUs to the GTDB NanoASV database, labelling each with the
+GTDB taxonomy string produced by step 06. **This step must run after step 06.**
+
+The BLAST result from step 06 (`taxonomy_all.tsv`) is the taxonomy source: each ZOTU
+is written into the NanoASV database with exactly the same GTDB label it received from
+BLAST. This ensures that NanoASV assigns consistent taxonomy whether reads are classified
+via the broad GTDB reference or via a ZOTU entry.
 
 ```bash
 bash 09_augment_nanoasv_db.sh
 ```
 
-**Input:** `db/gtdb/SINGLELINE_GTDB_SSU_nanoasv.fasta`, `pooled/zotus_minsize3.fasta`, `results/taxonomy_zotus_minsize3/taxonomy_all.tsv`  
+**Input:**
+- `db/gtdb/SINGLELINE_GTDB_SSU_nanoasv.fasta` — base database from step 08
+- `pooled/zotus_minsize3.fasta` — ZOTU sequences from step 04
+- `results/taxonomy_zotus_minsize3/taxonomy_all.tsv` — GTDB taxonomy from step 06
+
 **Output:** `db/gtdb/SINGLELINE_GTDB_SSU_plus_zotus.fasta`
 
-Taxonomy labelling mirrors script 06:
-- pident ≥ 97%: full GTDB taxonomy string
-- pident < 97%: confident to family; genus+species → `unclassified_<family>`
-  (Zotu1/2/12/14 → `unclassified_UBA9628`)
+Taxonomy labelling rules (mirroring the 97% threshold from step 06):
+- pident ≥ 97%: full GTDB taxonomy string (known organism)
+- pident < 97%: confident to family only; genus+species → `unclassified_<family>`
+  (Zotu1/2/12/14 at ~88% → `unclassified_UBA9628`)
 
 ---
 
