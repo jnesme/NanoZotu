@@ -41,25 +41,23 @@ MSc thesis project (Asta). De novo ZOTU analysis of full-length 16S rRNA gene se
 
 Quick start:
 ```bash
-# Step 1: build GTDB NanoASV base database (needs only db/gtdb/*.fna.gz — run once)
-bash 08_build_gtdb_nanoasv.sh
-
-# Step 2: de novo ZOTU pipeline
+# Sequential: merge chunks → trim → pool → denoise
 bash 01_concatenate_barcodes.sh
-bsub < 02_trim_primers.sh           # cluster job: 21 barcodes x 4 threads
+bsub < 02_trim_primers.sh    # wait for completion
 bash 03_dereplicate.sh
 bash 04_unoise3.sh
-bsub < 05_otutab.sh                 # cluster job: multi-threaded usearch otutab
-bash 06_taxonomy.sh pooled/zotus_minsize3.fasta   # produces taxonomy_all.tsv
 
-# Step 3: inject ZOTUs + their BLAST taxonomy into the NanoASV database (depends on step 06)
+# Parallel: after step 04, three independent tasks can run simultaneously
+bsub < 05_otutab.sh                                        # cluster: otutab
+bash 06_taxonomy.sh pooled/zotus_minsize3.fasta            # interactive: BLAST (fast)
+bash 08_build_gtdb_nanoasv.sh                              # interactive: DB build (run once)
+
+# Converge: 09 requires both 06 (taxonomy_all.tsv) and 08 (GTDB NanoASV fasta)
 bash 09_augment_nanoasv_db.sh
 
-# Step 4: optional phylogenetic placement of novel ZOTUs
-bsub < 07_elusimicrobiota_tree.sh
-
-# Step 5: NanoASV → Phyloseq (cluster job)
-bsub < 10_nanoasv.sh
+# Final cluster jobs (submit after 09 completes)
+bsub < 07_elusimicrobiota_tree.sh   # optional: phylogenetic placement of novel ZOTUs
+bsub < 10_nanoasv.sh                # NanoASV → Phyloseq
 ```
 
 ---
