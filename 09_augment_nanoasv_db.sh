@@ -1,24 +1,35 @@
 #!/bin/bash
-# Augment the GTDB NanoASV database with ZOTUs whose sequences are not already
-# represented in GTDB (pident < 100%). ZOTUs at 100% pident are skipped — the
-# identical GTDB entry is sufficient and injection would cause minimap2 to split
-# reads between two identical entries, distorting relative abundances.
+# Augment the GTDB NanoASV database with project ZOTUs and host chloroplast 16S.
 #
-# Injection + taxonomy labelling rules:
-#   pident == 100%                         → skip (GTDB entry sufficient)
-#   pident >= BLAST_SPECIES_THRESHOLD (98.7%), < 100%
-#                                          → inject, full GTDB taxonomy
-#   pident >= BLAST_IDENTITY_THRESHOLD (97%), < 98.7%
-#                                          → inject, genus only (Genus sp.)
-#   pident <  BLAST_IDENTITY_THRESHOLD (97%)
-#                                          → inject, unclassified_<family>
-#                                            (verify manually + tree in step 07)
+# Two augmentation passes:
+#
+# 1. Bacterial ZOTUs (GTDB-assigned): injected only if pident < 100%
+#    ZOTUs at 100% pident are skipped — the identical GTDB entry is sufficient
+#    and injection would cause minimap2 to split reads between two identical
+#    entries, distorting relative abundances.
+#    ZOTUs listed in db/chloroplast/chloroplast_zotus.txt are excluded from this
+#    pass regardless of pident — they are organellar, not bacterial.
+#
+#    Taxonomy labelling rules:
+#      pident == 100%                         → skip (GTDB entry sufficient)
+#      listed in chloroplast_zotus.txt        → skip (handled in pass 2)
+#      pident >= BLAST_SPECIES_THRESHOLD (98.7%), < 100%
+#                                             → inject, full GTDB taxonomy
+#      pident >= BLAST_IDENTITY_THRESHOLD (97%), < 98.7%
+#                                             → inject, genus only (Genus sp.)
+#      pident <  BLAST_IDENTITY_THRESHOLD (97%)
+#                                             → inject, unclassified_<family>
+#
+# 2. Host chloroplast 16S (db/chloroplast/Igalbana_chloroplast_16S.fasta):
+#    appended with Eukaryota taxonomy so NanoASV quantifies algal DNA per sample.
 #
 # Prerequisite: run 08_build_gtdb_nanoasv.sh first.
 #
 # Input:  db/gtdb/SINGLELINE_GTDB_SSU_nanoasv.fasta
 #         pooled/zotus_minsize3.fasta
 #         results/taxonomy_zotus_minsize3/taxonomy_all.tsv
+#         db/chloroplast/chloroplast_zotus.txt
+#         db/chloroplast/Igalbana_chloroplast_16S.fasta
 # Output: db/gtdb/SINGLELINE_GTDB_SSU_plus_zotus.fasta
 #
 # Usage: bash 09_augment_nanoasv_db.sh
@@ -30,6 +41,8 @@ source "$(dirname "${BASH_SOURCE[0]}")/config.sh"
 BASE_DB="db/gtdb/SINGLELINE_GTDB_SSU_nanoasv.fasta"
 ZOTU_FASTA="pooled/zotus_minsize${MINSIZE_WORKING}.fasta"
 TAXONOMY_TSV="results/taxonomy_zotus_minsize${MINSIZE_WORKING}/taxonomy_all.tsv"
+CHLOROPLAST_ZOTUS="db/chloroplast/chloroplast_zotus.txt"
+CHLOROPLAST_FASTA="db/chloroplast/Igalbana_chloroplast_16S.fasta"
 OUT_DB="db/gtdb/SINGLELINE_GTDB_SSU_plus_zotus.fasta"
 
 if [[ ! -s "$BASE_DB" ]]; then
@@ -37,19 +50,28 @@ if [[ ! -s "$BASE_DB" ]]; then
     echo "Run: bash 08_build_gtdb_nanoasv.sh"
     exit 1
 fi
+if [[ ! -s "$CHLOROPLAST_FASTA" ]]; then
+    echo "ERROR: Chloroplast 16S FASTA not found at $CHLOROPLAST_FASTA"
+    exit 1
+fi
 
-echo "=== Augmenting GTDB NanoASV database with project ZOTUs ==="
+echo "=== Augmenting GTDB NanoASV database with project ZOTUs and host chloroplast ==="
 
-ZOTU_BLOCK=$(python3 - "$ZOTU_FASTA" "$TAXONOMY_TSV" "$BLAST_IDENTITY_THRESHOLD" "$BLAST_SPECIES_THRESHOLD" << 'PYEOF'
+ZOTU_BLOCK=$(python3 - "$ZOTU_FASTA" "$TAXONOMY_TSV" "$BLAST_IDENTITY_THRESHOLD" "$BLAST_SPECIES_THRESHOLD" "$CHLOROPLAST_ZOTUS" << 'PYEOF'
 import sys
 import csv
 
-fasta_in         = sys.argv[1]
-tax_tsv          = sys.argv[2]
-PIDENT_THRESHOLD = float(sys.argv[3])   # 97  — genus minimum
-SPECIES_THRESHOLD = float(sys.argv[4])  # 98.7 — species minimum (Kim et al. 2014)
+fasta_in          = sys.argv[1]
+tax_tsv           = sys.argv[2]
+PIDENT_THRESHOLD  = float(sys.argv[3])   # 97  — genus minimum
+SPECIES_THRESHOLD = float(sys.argv[4])   # 98.7 — species minimum (Kim et al. 2014)
+chl_file          = sys.argv[5]
 
-skipped = []
+with open(chl_file) as f:
+    chloroplast_zotus = {l.strip() for l in f if l.strip()}
+
+skipped_pident = []
+skipped_chl    = []
 tax = {}
 with open(tax_tsv) as f:
     reader = csv.DictReader(f, delimiter='\t')
@@ -58,29 +80,31 @@ with open(tax_tsv) as f:
         gtdb   = row['taxonomy']
         pident = float(row['pident'])
 
+        if zotu in chloroplast_zotus:
+            skipped_chl.append(zotu)
+            continue  # organellar — added separately with chloroplast taxonomy
+
         if pident == 100.0:
-            skipped.append(zotu)
+            skipped_pident.append(zotu)
             continue  # exact sequence already in GTDB — skip to avoid read splitting
 
         parts = [p.split('__', 1)[1] if '__' in p else p for p in gtdb.split(';')]
 
         if pident < PIDENT_THRESHOLD:
-            # Novel organism — family call may also be uncertain at low pident.
-            # Cross-check taxonomy_unknown.tsv manually and verify with the
-            # phylogenetic tree (07_elusimicrobiota_tree.sh) for any unknowns.
             family = parts[4] if len(parts) > 4 else 'unclassified'
             label  = f'unclassified_{family}'
             parts[5] = label
             parts[6] = label
         elif pident < SPECIES_THRESHOLD:
-            # Same genus, species uncertain — keep genus, truncate species
             genus    = parts[5] if len(parts) > 5 else 'unclassified'
             parts[6] = f'{genus} sp.'
 
         tax[zotu] = ';'.join(parts)
 
-if skipped:
-    print(f'Skipped (100% pident): {", ".join(skipped)}', file=sys.stderr)
+if skipped_pident:
+    print(f'Skipped (100% pident): {", ".join(skipped_pident)}', file=sys.stderr)
+if skipped_chl:
+    print(f'Skipped (chloroplast): {", ".join(skipped_chl)}', file=sys.stderr)
 
 header    = None
 seq_parts = []
@@ -109,24 +133,32 @@ PYEOF
 )
 
 N_ZOTUS=$(echo "$ZOTU_BLOCK" | grep -c "^>" || true)
-N_SKIPPED=$(python3 -c "
+N_SKIPPED_PIDENT=$(python3 -c "
 import csv
 with open('$TAXONOMY_TSV') as f:
-    print(sum(1 for r in csv.DictReader(f, delimiter='\t') if float(r['pident']) == 100.0))
+    chloroplast = open('$CHLOROPLAST_ZOTUS').read().split()
+    print(sum(1 for r in csv.DictReader(f, delimiter='\t')
+              if float(r['pident']) == 100.0 and r['zotu'] not in chloroplast))
 ")
+N_CHLOROPLAST=$(grep -c "^>" "$CHLOROPLAST_FASTA")
 
 echo ""
-echo "  Injected ($N_ZOTUS):"
+echo "  Bacterial ZOTUs injected ($N_ZOTUS):"
 echo "$ZOTU_BLOCK" | grep "^>" | sed 's/^/    /'
 echo ""
+echo "  Chloroplast sequences appended ($N_CHLOROPLAST):"
+grep "^>" "$CHLOROPLAST_FASTA" | sed 's/^/    /'
+echo ""
 
-cat "$BASE_DB" <(echo "$ZOTU_BLOCK") > "$OUT_DB"
+cat "$BASE_DB" <(echo "$ZOTU_BLOCK") "$CHLOROPLAST_FASTA" > "$OUT_DB"
 
-echo "  Base DB:   $(grep -c "^>" "$BASE_DB") sequences"
-echo "  Skipped:   $N_SKIPPED (100% pident — GTDB entry sufficient)"
-echo "  Injected:  $N_ZOTUS"
-echo "  Output:    $(grep -c "^>" "$OUT_DB") sequences total"
-echo "  File:      $OUT_DB"
+echo "  Base DB:            $(grep -c "^>" "$BASE_DB") sequences"
+echo "  Skipped (100% id):  $N_SKIPPED_PIDENT (GTDB entry sufficient)"
+echo "  Skipped (chloroplast): $(wc -l < "$CHLOROPLAST_ZOTUS" | tr -d ' ') (added as organellar)"
+echo "  Bacterial injected: $N_ZOTUS"
+echo "  Chloroplast added:  $N_CHLOROPLAST"
+echo "  Output:             $(grep -c "^>" "$OUT_DB") sequences total"
+echo "  File:               $OUT_DB"
 echo ""
 echo "Done."
 echo ""
