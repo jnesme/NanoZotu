@@ -11,7 +11,9 @@ results/
 metadata/*.csv
 
 # Reference databases (downloaded separately per Setup instructions)
-db/
+# db/* instead of db/ so that subdirectory exceptions can be applied
+db/*
+!db/chloroplast/
 
 # Logs
 logs/
