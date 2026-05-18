@@ -28,7 +28,7 @@ LSF scripts (07, 10) additionally require PROJECT_DIR hardcoded as an absolute p
                          08 → 09 → 10
 
 - 01–06: core UNOISE3 pipeline (read processing → taxonomy)
-- 07: Elusimicrobiota phylogenetic placement tree
+- 07: Chloroplast/Elusimicrobiota phylogenetic placement tree (superseded — see taxonomy results)
 - 08–10: NanoASV branch (GTDB SSU + ZOTUs → Phyloseq output)
   - 08: convert GTDB SSU to NanoASV format (run once, interactive)
   - 09: augment with project ZOTUs (run once, interactive)
@@ -57,6 +57,7 @@ All scripts are run from the project root: /work3/josne/Projects/AstaMSc_GRF_Iga
 - minsize=8 (from reference paper) is too aggressive for this sequencing depth
 - Some ZOTUs represent intragenomic 16S copy variants from the same organism
 - Some ZOTUs match reference database at 100% identity — validates pipeline accuracy
+- 4 ZOTUs (Zotu1/2/12/14) are Isochrysis galbana chloroplast 16S (see taxonomy results) — excluded from microbiome analysis
 
 ### ZOTU table (05)
 - Script takes ZOTU FASTA as argument to allow comparison across minsize thresholds
@@ -68,6 +69,7 @@ All scripts are run from the project root: /work3/josne/Projects/AstaMSc_GRF_Iga
 - Rare taxa below detection threshold — EMU (closed-reference) identified ~62 species vs 14 ZOTUs at minsize=3
 - Intragenomic 16S variants inflate ZOTU count relative to true species count
 - UNOISE3 error model designed for Illumina substitution errors, not ONT indel-dominated errors
+- 27F/1492R primers amplify host chloroplast 16S in algae cultures (Zotu1/2/12/14 = I. galbana chloroplast). GTDB-only BLAST cannot detect this — always cross-check unknown ZOTUs against NCBI nt. A chloroplast blocking/filtering step should be added to the pipeline.
 - ONT full-length 16S is NOT suitable for ASV-level resolution of complex, diverse communities at realistic sequencing depths. The limiting factor is depth, not chemistry accuracy. R10.4 SUP produces reads accurate enough for ASV resolution (100% identity matches confirmed), but the depth required scales prohibitively with community diversity. ONT full-length 16S is appropriate for low-diversity, controlled systems (cultured algae, bioreactors, clinical isolates) where dominant taxa can be recovered at available depths.
 
 ## Step 06 — Mixed taxonomy assignment (implemented)
@@ -99,22 +101,23 @@ Assigned (pident >= 97%): 10 ZOTUs
 - Zotu10: Alteromonas abrolhosensis (99.8%)
 - Zotu13: Alteromonas sp. (99.9%)
 
-Unknown (pident ~88%): 4 ZOTUs (Zotu1, 2, 12, 14)
-- All hit the same reference: GWA2-66-18 sp965283875 (phylum Elusimicrobiota)
-- 88% identity = novel genus/family level — not in GTDB at species resolution
-- Elusimicrobiota are known endosymbionts of flagellates, commonly associated with algae — biologically coherent
-- Likely intragenomic variants of the same novel organism
-- Candidate for genome mapping
-- Completely absent from rrnDB (only 3 Elusimicrobiota entries total: Elusimicrobium minutum,
-  Endomicrobium proavitum, Candidatus Endomicrobiellum trichonymphae — none from order UBA1565)
-  → EMU cannot detect this organism regardless of sequencing depth; confirmed closed-reference limitation
+Host chloroplast (confirmed): 4 ZOTUs (Zotu1, 2, 12, 14)
+- NCBI nt BLAST: 100% identity to Isochrysis galbana chloroplast genome (NC_049168.1)
+- GTDB BLAST had returned Elusimicrobiota GWA2-66-18 at 88% — a false lead; GTDB contains no
+  organellar sequences, so it reported the best prokaryotic hit instead
+- 27F/1492R primers amplify plastid 16S (conserved primer sites due to cyanobacterial ancestry)
+- I. galbana has a secondary plastid (red-algal origin via secondary endosymbiosis); its 16S
+  has diverged from modern cyanobacteria for >1 Ga, explaining why no cyanobacteria hit better
+  than 88% in GTDB — at that identity level BLAST hits are not phylogenetically informative
+- These ZOTUs are EXCLUDED from all microbiome analyses
+- Lesson: GTDB-only BLAST is blind to organellar sequences; any "unknown" ZOTU in an algae
+  culture context must be cross-checked against NCBI nt before drawing biological conclusions
 
-### Phylogenetic placement of Elusimicrobiota ZOTUs (script 07)
-- Dedicated Elusimicrobiota tree built with all 271 GTDB SSU reps from the phylum + 4 ZOTUs + archaeal outgroup
-- ZOTUs form a tight monophyletic clade with GB_GCA_965283875.1 (GWA2-66-18 sp965283875)
-- Clade leaf labels: GB_GCA_965283875.1, Zotu1, Zotu2, Zotu12, Zotu14
-- Phylogenetic placement confirms BLAST assignment: the 88% identity is real divergence, not artifact
-- The organism is a genuinely novel lineage within Elusimicrobiota with only one close relative in GTDB
+### Phylogenetic tree (script 07) — superseded
+- Tree was built in an Elusimicrobiota-only context (all 271 GTDB SSU reps + 4 ZOTUs + archaeal outgroup)
+- ZOTUs clustered with GWA2-66-18 within that constrained tree, but this cannot reject a
+  chloroplast origin — Cyanobacteria were not included, so the tree cannot discriminate
+- The tree result was circular: placement within Elusimicrobiota was guaranteed by the taxon sampling
 
 ## Key reference
 Riisgaard-Jensen et al. 2026 — "Nanopore sequencing reaches amplicon sequence variant (ASV) resolution"
