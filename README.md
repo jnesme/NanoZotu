@@ -1,6 +1,6 @@
 # NanoZotu — Full-length 16S ZOTU pipeline for Oxford Nanopore
 
-MSc thesis project (Asta). De novo ZOTU analysis of full-length 16S rRNA gene sequences (V1–V9, ~1500 bp) from a cultured algae microbiome, sequenced on Oxford Nanopore R10.4 with super accuracy basecalling. Produces GTDB-curated taxonomy, phylogenetic placement of a novel Elusimicrobiota lineage, and a Phyloseq R object via NanoASV.
+MSc thesis project (Asta). De novo ZOTU analysis of full-length 16S rRNA gene sequences (V1–V9, ~1500 bp) from a cultured algae microbiome, sequenced on Oxford Nanopore R10.4 with super accuracy basecalling. Produces GTDB-curated taxonomy and a Phyloseq R object via NanoASV.
 
 ---
 
@@ -21,9 +21,9 @@ MSc thesis project (Asta). De novo ZOTU analysis of full-length 16S rRNA gene se
 ## Pipeline overview
 
 ```
-01 → 02 → 03 → 04 → 05 → 06 → 07
-                              ↓
-                         08 → 09 → 10
+01 → 02 → 03 → 04 → 05 → 06
+                         ↓
+                    08 → 09 → 10
 ```
 
 | Script | Purpose |
@@ -33,10 +33,9 @@ MSc thesis project (Asta). De novo ZOTU analysis of full-length 16S rRNA gene se
 | `03_dereplicate.sh` | Pool samples and dereplicate |
 | `04_unoise3.sh` | UNOISE3 denoising across minsize thresholds |
 | `05_otutab.sh` | Per-sample ZOTU abundance table |
-| `06_taxonomy.sh` | BLASTn taxonomy against GTDB SSU |
-| `07_elusimicrobiota_tree.sh` | Phylogenetic placement of novel Elusimicrobiota ZOTUs |
-| `08_build_gtdb_nanoasv.sh` | Convert GTDB SSU to NanoASV format (one-time) |
-| `09_augment_nanoasv_db.sh` | Append project ZOTUs to GTDB NanoASV database (one-time) |
+| `06_taxonomy.sh` | BLASTn taxonomy against GTDB SSU + SILVA organellar |
+| `08_build_gtdb_nanoasv.sh` | Build NanoASV base database: GTDB + SILVA organellar (one-time) |
+| `09_augment_nanoasv_db.sh` | Inject novel ZOTUs into NanoASV database (one-time) |
 | `10_nanoasv.sh` | NanoASV run → Phyloseq output |
 
 Quick start:
@@ -55,8 +54,7 @@ bash 08_build_gtdb_nanoasv.sh                              # interactive: DB bui
 # Converge: 09 requires both 06 (taxonomy_all.tsv) and 08 (GTDB NanoASV fasta)
 bash 09_augment_nanoasv_db.sh
 
-# Final cluster jobs (submit after 09 completes)
-bsub < 07_elusimicrobiota_tree.sh   # optional: phylogenetic placement of novel ZOTUs
+# Final cluster job (submit after 09 completes)
 bsub < 10_nanoasv.sh                # NanoASV → Phyloseq
 ```
 
@@ -131,14 +129,14 @@ NANOASV_PATH="/path/to/NanoASV"           # absolute path to NanoASV clone
 Update primers, size filter, and thresholds if your amplicon target differs
 from full-length 16S (V1–V9, 27F/1492R).
 
-### 5. Edit the two LSF scripts
+### 5. Edit the LSF script
 
-In `07_elusimicrobiota_tree.sh` and `10_nanoasv.sh`, set `PROJECT_DIR` to the
-absolute path of your project clone and update the `#BSUB` headers for your
-HPC environment (queue name, email, walltime):
+In `10_nanoasv.sh`, set `PROJECT_DIR` to the absolute path of your project
+clone and update the `#BSUB` headers for your HPC environment (queue name,
+email, walltime):
 
 ```bash
-# Change this line in both scripts:
+# Change this line in 10_nanoasv.sh:
 PROJECT_DIR="/absolute/path/to/NanoZotu"
 
 # Update these headers for your HPC:
@@ -198,14 +196,14 @@ NANOASV_SUBSAMPLING=100000
 NANOASV_SAM_QUAL=0
 ```
 
-Scripts 01–09 source `config.sh` automatically relative to their own location. The two LSF scripts (`07_elusimicrobiota_tree.sh`, `10_nanoasv.sh`) additionally require `PROJECT_DIR` to be set as an absolute path — this is the **only line that must be edited directly in those scripts**, since LSF copies them to `/tmp` before execution and relative paths are not reliable:
+Scripts 01–09 source `config.sh` automatically relative to their own location. The LSF script (`10_nanoasv.sh`) additionally requires `PROJECT_DIR` to be set as an absolute path — this is the **only line that must be edited directly in that script**, since LSF copies it to `/tmp` before execution and relative paths are not reliable:
 
 ```bash
-# In 07_elusimicrobiota_tree.sh and 10_nanoasv.sh — change this line:
+# In 10_nanoasv.sh — change this line:
 PROJECT_DIR="/work3/josne/Projects/AstaMSc_GRF_Igalbana"
 ```
 
-The `#BSUB` headers (queue, email, resources) in scripts 07 and 10 also require manual editing for your HPC environment.
+The `#BSUB` headers (queue, email, resources) in script 10 also require manual editing for your HPC environment.
 
 ---
 
@@ -251,8 +249,7 @@ conda activate qiime2-amplicon-2026.1
 ├── metadata/
 │   └── nanoasv_metadata.csv  # 21 samples — update Measure_1/Measure_2 before NanoASV
 ├── results/
-│   ├── taxonomy_zotus_minsize3/    # GTDB BLAST results (step 06)
-│   ├── elusimicrobiota_tree/       # Elusimicrobiota phylogeny (step 07)
+│   ├── taxonomy_zotus_minsize3/    # BLAST taxonomy results (step 06)
 │   └── nanoasv/output/            # NanoASV outputs including Phyloseq (step 10)
 ├── supplementary/            # rrnDB scripts (future copy-number correction)
 ├── logs/
@@ -263,7 +260,6 @@ conda activate qiime2-amplicon-2026.1
 ├── 04_unoise3.sh
 ├── 05_otutab.sh
 ├── 06_taxonomy.sh
-├── 07_elusimicrobiota_tree.sh
 ├── 08_build_gtdb_nanoasv.sh
 ├── 09_augment_nanoasv_db.sh
 └── 10_nanoasv.sh
@@ -396,28 +392,30 @@ THREADS=16 bash 05_otutab.sh pooled/zotus_minsize3.fasta
 
 ---
 
-### Step 06 — GTDB taxonomy assignment
+### Step 06 — Taxonomy assignment
 
-BLASTn of ZOTUs against the GTDB SSU representative sequences (bac120 + ar53 combined).
+BLASTn of ZOTUs against the NanoASV base database (GTDB SSU + SILVA organellar).
 Best hit is selected by bitscore across 500 candidate hits — not by the first BLAST result,
-which is not guaranteed to be the best (Shah et al. 2019).
+which is not guaranteed to be the best (Shah et al. 2019). Organellar hits (Chloroplast,
+Mitochondria) are always assigned regardless of pident — any organellar match is informative.
 
 ```bash
 bash 06_taxonomy.sh pooled/zotus_minsize3.fasta
 ```
 
-**Input:** `<zotus.fasta>`, `db/gtdb/` (BLAST index auto-built on first run)  
+**Prerequisite:** `bash 08_build_gtdb_nanoasv.sh` (builds the reference database)  
+**Input:** `<zotus.fasta>`, `db/gtdb/SINGLELINE_GTDB_SSU_nanoasv.fasta`  
 **Output:** `results/taxonomy_<zotus>/taxonomy_assigned.tsv`, `taxonomy_unknown.tsv`, `taxonomy_all.tsv`
 
 | Parameter | Value | Rationale |
 |---|---|---|
-| pident threshold | ≥ 97% | Standard species-level 16S identity cutoff |
+| pident threshold | ≥ 97% | Standard species-level 16S identity cutoff (bacteria) |
 | evalue threshold | ≤ 1e-10 | Eliminates spurious low-complexity matches |
 | max_target_seqs | 500 | Ensures true best hit is found before bitscore selection |
 
 Results (minsize=3, 14 ZOTUs):
 
-**Assigned (pident ≥ 97%, 10 ZOTUs):**
+**Bacterial (pident ≥ 97%, 10 ZOTUs):**
 
 | ZOTU | Species | pident |
 |---|---|---|
@@ -429,27 +427,14 @@ Results (minsize=3, 14 ZOTUs):
 | Zotu10 | Alteromonas abrolhosensis | 99.8% |
 | Zotu13 | Alteromonas sp. | 99.9% |
 
-**Novel (pident ~88%, 4 ZOTUs):** Zotu1, 2, 12, 14 all hit GWA2-66-18 sp965283875
-(phylum Elusimicrobiota, order UBA1565, family UBA9628). At 88% identity these represent
-a novel genus/species — see design decisions below.
+**Host chloroplast (4 ZOTUs):** Zotu1, 2, 12, 14 are I. galbana chloroplast 16S (confirmed
+100% identity to NC_049168.1 via NCBI BLAST). The 4 ZOTUs correspond to the 4 16S rRNA gene
+copies in the chloroplast genome. These reads are quantified separately — they are not part
+of the bacterial microbiome.
 
----
-
-### Step 07 — Elusimicrobiota phylogenetic tree
-
-Builds a maximum-likelihood phylogenetic tree of all 271 GTDB SSU representatives from
-phylum Elusimicrobiota, the 4 novel project ZOTUs, and an archaeal outgroup (MAFFT + FastTree).
-
-```bash
-bsub < 07_elusimicrobiota_tree.sh
-```
-
-**Input:** GTDB SSU FASTA, `pooled/zotus_minsize3.fasta`  
-**Output:** `results/elusimicrobiota_tree/` (FASTA, alignment, tree)
-
-The 4 ZOTUs form a tight monophyletic clade with GWA2-66-18 (the closest GTDB reference),
-confirming order-level placement within UBA1565. This is independent validation of the BLAST
-result and demonstrates the novelty is real divergence, not a pipeline artifact.
+> Note: GTDB contains no organellar sequences. Without the SILVA organellar pre-filter, these
+> ZOTUs receive a misleading bacterial hit at ~88% identity. The unified GTDB + SILVA organellar
+> database ensures correct assignment in any culture system.
 
 ---
 
@@ -461,15 +446,15 @@ Steps 08–10 produce a Phyloseq R object from the same reads, using NanoASV's S
 workflow. The approach combines the de novo ZOTUs from step 04 with reference-based read
 classification:
 
-1. **Step 08** converts the GTDB SSU representative sequences into the singleline FASTA
-   format required by NanoASV. This is the reference database that minimap2 will map reads against.
+1. **Step 08** builds the NanoASV base database: GTDB SSU representative sequences (~93k
+   bacterial + archaeal) plus the SILVA organellar subset (Chloroplast + Mitochondria lineages,
+   ~5.8k sequences). This is the reference that minimap2 maps reads against.
 
-2. **Step 09** takes the ZOTUs from step 04 and injects them — labelled with their step 06
-   GTDB taxonomy — into the database built in step 08. This is the critical step: without it,
-   minimap2 maps reads from novel organisms (e.g. Elusimicrobiota at 88% identity) to whatever
-   distant reference produces the best local alignment score, giving wrong taxonomy. With the
-   ZOTUs in the database, those reads map to their own ZOTU at ~100% identity, outcompeting
-   any spurious hit.
+2. **Step 09** injects novel project ZOTUs — those whose exact sequence is absent from the base
+   database (pident < 100%) — labelled with their step 06 taxonomy. This is critical: without it,
+   minimap2 maps reads from novel organisms to whatever distant reference produces the best local
+   alignment score, giving wrong taxonomy. With the ZOTUs in the database, those reads map to
+   their own ZOTU consensus at ~100% identity, outcompeting any spurious hit.
 
 3. **Step 10** runs NanoASV against the augmented database and exports a Phyloseq Rdata object.
 
@@ -477,21 +462,24 @@ Steps 08 and 09 are one-time setup per project. Step 09 depends on step 06 havin
 
 ---
 
-### Step 08 — Build GTDB NanoASV database
+### Step 08 — Build NanoASV base database
 
-Converts GTDB SSU representative sequences (~93k bacterial + archaeal) into the singleline
-FASTA format required by NanoASV. Run once before the first NanoASV job.
+Builds the NanoASV base database: GTDB SSU representative sequences (~93k bacterial + archaeal)
+plus SILVA organellar sequences (~5.8k Chloroplast and Mitochondria lineages). Run once before
+the first NanoASV job; re-run when GTDB or SILVA is updated.
 
 ```bash
 bash 08_build_gtdb_nanoasv.sh
 ```
 
-**Input:** `db/gtdb/bac120_ssu_reps.fna.gz`, `db/gtdb/ar53_ssu_reps.fna.gz`  
-**Output:** `db/gtdb/SINGLELINE_GTDB_SSU_nanoasv.fasta` (~129 MB, uncompressed)
+**Input:** `db/gtdb/bac120_ssu_reps.fna.gz`, `db/gtdb/ar53_ssu_reps.fna.gz`,
+`db/silva/SINGLELINE_SILVA_138.2_plus_zotus.fasta`  
+**Output:** `db/gtdb/SINGLELINE_GTDB_SSU_nanoasv.fasta` (uncompressed)
 
 GTDB SSU headers carry rank-prefixed taxonomy (`d__Bacteria;p__Pseudomonadota;...`) and
 bracketed metadata (`[locus_tag=...]`). The script strips rank prefixes and discards bracketed
-fields. Output is uncompressed because NanoASV's format validation uses plain `grep`.
+fields. SILVA organellar sequences are already in NanoASV-compatible format and are appended
+as-is. Output is uncompressed because NanoASV's format validation uses plain `grep`.
 
 ---
 
@@ -517,9 +505,14 @@ bash 09_augment_nanoasv_db.sh
 **Output:** `db/gtdb/SINGLELINE_GTDB_SSU_plus_zotus.fasta`
 
 Taxonomy labelling rules (mirroring the 97% threshold from step 06):
-- pident ≥ 97%: full GTDB taxonomy string (known organism)
-- pident < 97%: confident to family only; genus+species → `unclassified_<family>`
-  (Zotu1/2/12/14 at ~88% → `unclassified_UBA9628`)
+- pident = 100%: skip — exact sequence is already in the base database
+- pident ≥ 98.7%: full taxonomy string (species-level, Kim et al. 2014)
+- pident ≥ 97%: genus-level only → `Genus sp.`
+- pident < 97%: family-level only → `unclassified_<family>`
+
+Organellar ZOTUs are handled automatically: if their sequence is present in the
+SILVA organellar subset at 100%, they are skipped; if absent or diverged, they
+are injected with their SILVA organellar taxonomy.
 
 ---
 
@@ -561,7 +554,7 @@ If dereplication and UNOISE3 are run per-sample, each sample produces an indepen
 DADA2 uses per-base quality scores to build a substitution error model. ONT errors are dominated by indels (especially in homopolymers), not substitutions, making the DADA2 error model a poor fit. UNOISE3's abundance-ratio error model is platform-agnostic and orders of magnitude faster.
 
 ### Why not EMU
-EMU is a closed-reference tool: reads are distributed across reference taxa via expectation-maximisation. It detects more taxa (including rare ones) but produces no sequences — ZOTUs cannot be extracted, BLASTed, or mapped to a genome of interest. For this project, where genome mapping is a downstream goal, UNOISE3 is the appropriate choice. More critically, EMU cannot detect organisms absent from its reference database — the novel Elusimicrobiota (88% identity to the nearest GTDB entry) would be undetectable by any closed-reference pipeline.
+EMU is a closed-reference tool: reads are distributed across reference taxa via expectation-maximisation. It detects more taxa (including rare ones) but produces no sequences — ZOTUs cannot be extracted, BLASTed, or mapped to a genome of interest. For this project, where genome mapping is a downstream goal, UNOISE3 is the appropriate choice. EMU also cannot detect organisms absent from its reference database — novel lineages at low identity would be silently misassigned.
 
 ### Why GTDB over SILVA for taxonomy
 SILVA species-level taxonomy is not curated: many entries carry names like "uncultured bacterium"
@@ -576,14 +569,6 @@ to whatever reference produces the best local alignment score. A novel organism 
 to any database entry will map spuriously to some unrelated reference rather than being flagged
 as unknown. Adding the 14 project ZOTUs as explicit database entries ensures reads map to
 their correct consensus sequences at ~100% identity, completely outcompeting any alternative hit.
-
-### Elusimicrobiota taxonomy: why `unclassified_UBA9628`
-The four Elusimicrobiota ZOTUs hit GWA2-66-18 sp965283875 at ~88% 16S identity.
-Standard thresholds: ≥98.7% = same species, ≥94.5% = same genus, ≥86.5% = same family.
-At 88%, we are confident the organism belongs to family UBA9628 but genus and species are
-genuinely novel. Labelling these ZOTUs as sp965283875 would be factually wrong — GWA2-66-18
-is the closest known relative, not the organism itself. `unclassified_UBA9628` correctly
-represents the resolution supported by the data.
 
 ### Sequencing depth and rare taxa
 At 20–60k reads per sample, rare community members fall below the detection threshold for UNOISE3.
