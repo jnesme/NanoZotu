@@ -11,7 +11,7 @@ MSc thesis project (Asta). Full-length 16S rRNA amplicon sequencing of the micro
 - 21 barcoded samples (barcode08 to barcode95, non-contiguous)
 
 ## Environment
-- Conda: qiime2-amplicon-2026.1 (steps 01–07), NanoASV (step 10)
+- Conda: qiime2-amplicon-2026.1 (steps 01–06), NanoASV (step 10)
 - Key tools: cutadapt (>=4.0 for --revcomp), usearch v12
 
 ## Configuration
@@ -19,19 +19,18 @@ All project-specific parameters are in config.sh (project root). Scripts source 
 Key parameters: PRIMER_FWD/REV/RC_REV, MIN_LEN/MAX_LEN, MINSIZE_MIN/MAX/WORKING,
 BLAST_IDENTITY_THRESHOLD, BLAST_EVALUE_THRESHOLD, NANOASV_MINAB/SUBSAMPLING/SAM_QUAL,
 CONDA_ENV_MAIN, CONDA_ENV_NANOASV, NANOASV_PATH.
-LSF scripts (07, 10) additionally require PROJECT_DIR hardcoded as an absolute path in the script body.
-#BSUB headers (queue, email) must also be edited directly in 07 and 10.
+LSF script (10) additionally requires PROJECT_DIR hardcoded as an absolute path in the script body.
+#BSUB headers (queue, email) must also be edited directly in 10.
 
 ## Pipeline overview
-01 → 02 → 03 → 04 → 05 → 06 → 07
-                              ↓
-                         08 → 09 → 10
+01 → 02 → 03 → 04 → 05 → 06
+                         ↓
+                    08 → 09 → 10
 
 - 01–06: core UNOISE3 pipeline (read processing → taxonomy)
-- 07: Chloroplast/Elusimicrobiota phylogenetic placement tree (superseded — see taxonomy results)
-- 08–10: NanoASV branch (GTDB SSU + ZOTUs → Phyloseq output)
-  - 08: convert GTDB SSU to NanoASV format (run once, interactive)
-  - 09: augment with project ZOTUs (run once, interactive)
+- 08–10: NanoASV branch (GTDB SSU + SILVA organellar + ZOTUs → Phyloseq output)
+  - 08: build NanoASV base DB (GTDB + SILVA organellar, run once, interactive)
+  - 09: inject novel ZOTUs into base DB (run once, interactive)
   - 10: NanoASV cluster job → Phyloseq Rdata
 
 supplementary/ contains rrnDB scripts (future copy-number correction).
@@ -112,12 +111,6 @@ Host chloroplast (confirmed): 4 ZOTUs (Zotu1, 2, 12, 14)
 - These ZOTUs are EXCLUDED from all microbiome analyses
 - Lesson: GTDB-only BLAST is blind to organellar sequences; any "unknown" ZOTU in an algae
   culture context must be cross-checked against NCBI nt before drawing biological conclusions
-
-### Phylogenetic tree (script 07) — superseded
-- Tree was built in an Elusimicrobiota-only context (all 271 GTDB SSU reps + 4 ZOTUs + archaeal outgroup)
-- ZOTUs clustered with GWA2-66-18 within that constrained tree, but this cannot reject a
-  chloroplast origin — Cyanobacteria were not included, so the tree cannot discriminate
-- The tree result was circular: placement within Elusimicrobiota was guaranteed by the taxon sampling
 
 ## Key reference
 Riisgaard-Jensen et al. 2026 — "Nanopore sequencing reaches amplicon sequence variant (ASV) resolution"
