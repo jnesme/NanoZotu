@@ -1,23 +1,32 @@
 #!/usr/bin/env bash
-# Taxonomy assignment for ZOTUs using BLASTn against GTDB SSU reference.
+# Taxonomy assignment for ZOTUs using BLASTn against the NanoASV base database.
 #
-# Mixed approach:
-#   - High identity + low e-value hits → direct GTDB taxonomy assignment
-#   - No hit / low identity            → retained as de novo novel sequences
+# The reference database (GTDB SSU + SILVA organellar) is built once by
+# 08_build_gtdb_nanoasv.sh. Using the same database for both BLAST taxonomy
+# and NanoASV mapping ensures consistency: a ZOTU at pident == 100% is already
+# represented in the mapping database and does not need injection (step 09).
+#
+# Assignment rules:
+#   pident >= BLAST_IDENTITY_THRESHOLD AND evalue <= BLAST_EVALUE_THRESHOLD
+#     → assigned (taxonomy_assigned.tsv)
+#   Hit to organellar sequence (Chloroplast / Mitochondria lineage)
+#     → always assigned regardless of pident — any organellar hit is informative
+#   Otherwise → unknown (taxonomy_unknown.tsv)
 #
 # Usage: bash 06_taxonomy.sh <zotus.fasta>
 #   e.g. bash 06_taxonomy.sh pooled/zotus_minsize3.fasta
 #
+# Prerequisite: bash 08_build_gtdb_nanoasv.sh  (builds the reference database)
+#
 # Input:
-#   <zotus.fasta>                                           — ZOTUs from 04_unoise3.sh
-#   db/gtdb/bac120_ssu_reps.fna.gz + ar53_ssu_reps.fna.gz  — GTDB SSU sequences
-#   db/gtdb/bac120_taxonomy.tsv.gz + ar53_taxonomy.tsv.gz   — GTDB taxonomy
+#   <zotus.fasta>                                   — ZOTUs from 04_unoise3.sh
+#   db/gtdb/SINGLELINE_GTDB_SSU_nanoasv.fasta       — NanoASV base database
 #
 # Output:
 #   results/taxonomy_<zotus>/
-#     taxonomy_assigned.tsv  — ZOTUs with high-confidence taxonomy
-#     taxonomy_unknown.tsv   — ZOTUs with no/low-confidence hit
-#     taxonomy_all.tsv       — full table including all ZOTUs
+#     taxonomy_assigned.tsv  — ZOTUs with assigned taxonomy
+#     taxonomy_unknown.tsv   — ZOTUs with no hit or below threshold
+#     taxonomy_all.tsv       — full table
 
 set -euo pipefail
 
@@ -37,50 +46,35 @@ ZOTUS_FASTA="$1"
 ZOTU_BASE=$(basename "${ZOTUS_FASTA%.fasta}")
 
 DB_DIR="db/gtdb"
+BASE_DB="$DB_DIR/SINGLELINE_GTDB_SSU_nanoasv.fasta"
 BLAST_DB="$DB_DIR/gtdb_ssu"
 RESULTS_DIR="results/taxonomy_${ZOTU_BASE}"
 LOG_DIR="logs/taxonomy"
 
 mkdir -p "$RESULTS_DIR" "$LOG_DIR"
 
-BAC_SSU="$DB_DIR/bac120_ssu_reps.fna.gz"
-AR_SSU="$DB_DIR/ar53_ssu_reps.fna.gz"
-BAC_TAX="$DB_DIR/bac120_taxonomy.tsv.gz"
-AR_TAX="$DB_DIR/ar53_taxonomy.tsv.gz"
-
-COMBINED_SSU="$DB_DIR/gtdb_ssu_combined.fna"
-COMBINED_TAX="$DB_DIR/gtdb_taxonomy_combined.tsv"
-
 THREADS="${THREADS:-$(nproc)}"
 
-# --- Step 1: Build combined reference (once) ---
-if [[ ! -f "$COMBINED_SSU" ]]; then
-    echo "=== Decompressing and combining GTDB SSU sequences ==="
-    zcat "$BAC_SSU" "$AR_SSU" > "$COMBINED_SSU"
-    echo "  $(grep -c '^>' "$COMBINED_SSU") sequences written to $COMBINED_SSU"
+if [[ ! -f "$BASE_DB" ]]; then
+    echo "ERROR: Base database not found: $BASE_DB" >&2
+    echo "Run: bash 08_build_gtdb_nanoasv.sh" >&2
+    exit 1
 fi
 
-if [[ ! -f "$COMBINED_TAX" ]]; then
-    echo "=== Building combined taxonomy table ==="
-    zcat "$BAC_TAX" > "$COMBINED_TAX"
-    zcat "$AR_TAX" | tail -n +2 >> "$COMBINED_TAX"
-    echo "  $(wc -l < "$COMBINED_TAX") entries written to $COMBINED_TAX"
-fi
-
-# --- Step 2: Build BLAST database (once) ---
+# --- Step 1: Build BLAST database from base DB (once) ---
 if [[ ! -f "${BLAST_DB}.nhr" ]]; then
     echo ""
     echo "=== Building BLAST database ==="
     makeblastdb \
-        -in "$COMBINED_SSU" \
+        -in "$BASE_DB" \
         -dbtype nucl \
         -out "$BLAST_DB" \
-        -title "GTDB_SSU" \
+        -title "GTDB_SSU_plus_organellar" \
         > "$LOG_DIR/makeblastdb.log" 2>&1
     echo "  BLAST database built: $BLAST_DB"
 fi
 
-# --- Step 3: BLASTn ---
+# --- Step 2: BLASTn ---
 echo ""
 echo "=== Running BLASTn (threads: $THREADS) ==="
 
@@ -100,14 +94,14 @@ blastn \
 
 echo "  BLASTn done."
 
-# --- Step 4: Parse results and assign taxonomy ---
-python3 - "$BLAST_OUT" "$COMBINED_TAX" "$ZOTUS_FASTA" \
+# --- Step 3: Parse results and assign taxonomy ---
+python3 - "$BLAST_OUT" "$BASE_DB" "$ZOTUS_FASTA" \
           "$RESULTS_DIR" "$BLAST_IDENTITY_THRESHOLD" "$BLAST_EVALUE_THRESHOLD" << 'PYEOF'
 import sys
 import csv
 
 blast_file  = sys.argv[1]
-tax_file    = sys.argv[2]
+ref_fasta   = sys.argv[2]
 query_fasta = sys.argv[3]
 out_dir     = sys.argv[4]
 id_thresh   = float(sys.argv[5])
@@ -120,14 +114,14 @@ with open(query_fasta) as f:
         if line.startswith('>'):
             zotu_ids.append(line[1:].strip().split()[0])
 
-# Load taxonomy: accession -> lineage
+# Load taxonomy from reference FASTA headers: >accession taxonomy_string
 tax = {}
-with open(tax_file) as f:
-    reader = csv.reader(f, delimiter='\t')
-    next(reader)  # skip header
-    for row in reader:
-        if len(row) >= 2:
-            tax[row[0].strip()] = row[1].strip()
+with open(ref_fasta) as f:
+    for line in f:
+        if line.startswith('>'):
+            parts = line[1:].strip().split(None, 1)
+            if len(parts) == 2:
+                tax[parts[0]] = parts[1]
 
 # Load BLAST results and select true best hit per query by bitscore.
 # -max_target_seqs 1 does NOT guarantee the best hit (Shah et al. 2019,
@@ -166,7 +160,8 @@ for zotu in zotu_ids:
     lineage = tax.get(hit['ref'], 'Not in taxonomy file')
     record = {'zotu': zotu, 'taxonomy': lineage, **hit}
 
-    if hit['pident'] >= id_thresh and hit['evalue'] <= ev_thresh:
+    is_organellar = ';Chloroplast;' in lineage or ';Mitochondria' in lineage
+    if (hit['pident'] >= id_thresh and hit['evalue'] <= ev_thresh) or is_organellar:
         assigned.append(record)
     else:
         unknown.append(record)

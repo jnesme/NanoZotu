@@ -1,21 +1,27 @@
 #!/bin/bash
-# Convert GTDB SSU representative sequences to NanoASV-compatible singleline FASTA.
+# Build the NanoASV base reference database: GTDB SSU + SILVA organellar sequences.
 #
 # NanoASV requires: >UniqueID Rank1;Rank2;...;Species  (singleline sequences)
 #
-# GTDB SSU header format:
-#   >AccessionID d__Kingdom;p__Phylum;...;s__Species [locus_tag=...] [location=...]
-# Sequences are already singleline in the GTDB distribution.
+# Sources:
+#   GTDB SSU — bacterial and archaeal representative sequences; rank prefixes
+#     (d__, p__, ...) stripped, bracketed metadata discarded.
+#   SILVA 138.2 organellar subset — Chloroplast (;Chloroplast; lineage node) and
+#     Mitochondria (;Mitochondria lineage node) sequences extracted from the SILVA
+#     SSU file; already in NanoASV-compatible singleline format, appended as-is.
 #
-# This script strips the rank prefixes (d__, p__, ...) and discards bracketed
-# metadata so each header becomes: >AccessionID Kingdom;Phylum;...;Species
+# This combined database is used by both step 06 (BLAST taxonomy) and step 09
+# (NanoASV mapping). A ZOTU is only injected in step 09 if its exact sequence is
+# absent from this database (pident < 100%).
 #
-# --no-r-cleaning is required when using this database in NanoASV: the R
-# cleaning step filters with SILVA taxonomy keywords (Mitochondria, Chloroplast,
-# etc.); GTDB uses different strings so filtering is skipped to avoid data loss.
+# --no-r-cleaning is required with this database in NanoASV: the R cleaning step
+# filters on SILVA taxonomy keywords; GTDB uses different strings. The SILVA
+# organellar sequences DO use the expected keywords (Chloroplast, Mitochondria)
+# so they are retained correctly.
 #
 # Input:  db/gtdb/bac120_ssu_reps.fna.gz   (~47k bacterial SSU reps)
 #         db/gtdb/ar53_ssu_reps.fna.gz     (~3.4k archaeal SSU reps)
+#         db/silva/SINGLELINE_SILVA_138.2_plus_zotus.fasta  (organellar subset extracted)
 # Output: db/gtdb/SINGLELINE_GTDB_SSU_nanoasv.fasta  (uncompressed)
 #
 # Note: uncompressed intentionally — NanoASV format check uses plain grep (not zgrep).
@@ -28,28 +34,31 @@ source "$(dirname "${BASH_SOURCE[0]}")/config.sh"
 
 BAC_GZ="db/gtdb/bac120_ssu_reps.fna.gz"
 ARC_GZ="db/gtdb/ar53_ssu_reps.fna.gz"
+SILVA_FASTA="db/silva/SINGLELINE_SILVA_138.2_plus_zotus.fasta"
 OUT_FASTA="db/gtdb/SINGLELINE_GTDB_SSU_nanoasv.fasta"
 
-echo "=== Converting GTDB SSU to NanoASV format ==="
+echo "=== Building NanoASV base database: GTDB SSU + SILVA organellar ==="
 echo "  Bacterial SSU: $BAC_GZ"
 echo "  Archaeal SSU:  $ARC_GZ"
+echo "  SILVA:         $SILVA_FASTA"
 echo "  Output:        $OUT_FASTA"
 echo ""
 
-for f in "$BAC_GZ" "$ARC_GZ"; do
+for f in "$BAC_GZ" "$ARC_GZ" "$SILVA_FASTA"; do
     if [[ ! -f "$f" ]]; then
         echo "ERROR: $f not found"
         exit 1
     fi
 done
 
-python3 - "$BAC_GZ" "$ARC_GZ" "$OUT_FASTA" << 'PYEOF'
+python3 - "$BAC_GZ" "$ARC_GZ" "$SILVA_FASTA" "$OUT_FASTA" << 'PYEOF'
 import sys
 import gzip
 
-bac_gz  = sys.argv[1]
-arc_gz  = sys.argv[2]
-out_path = sys.argv[3]
+bac_gz      = sys.argv[1]
+arc_gz      = sys.argv[2]
+silva_fasta = sys.argv[3]
+out_path    = sys.argv[4]
 
 RANK_PREFIXES = ('d__', 'p__', 'c__', 'o__', 'f__', 'g__', 's__')
 
@@ -92,8 +101,28 @@ with open(out_path, 'w') as out:
                 out.write(f'{header}\n{sequence}\n')
                 n_written += 1
 
-print(f"  Sequences written: {n_written}")
-print(f"  Sequences skipped: {n_skipped}")
+print(f"  GTDB sequences written: {n_written}")
+print(f"  GTDB sequences skipped: {n_skipped}")
+
+# Append SILVA organellar sequences (Chloroplast + Mitochondria lineages).
+# SILVA file is already in NanoASV-compatible singleline format; append as-is.
+# Use ';Chloroplast;' (both semicolons) to match the Chloroplast lineage node
+# without matching Chloroplastida (eukaryotic nuclear sequences).
+n_organellar = 0
+with open(silva_fasta) as f:
+    include = False
+    for line in f:
+        line = line.rstrip()
+        if not line:
+            continue
+        if line.startswith('>'):
+            include = ';Chloroplast;' in line or ';Mitochondria' in line
+            if include:
+                n_organellar += 1
+        if include:
+            out.write(f'{line}\n')
+
+print(f"  SILVA organellar appended: {n_organellar}")
 PYEOF
 
 echo ""
