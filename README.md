@@ -578,6 +578,33 @@ the dominant community; rare taxa are not captured at this depth.
 
 ---
 
+## Experimental: savont comparison
+
+`test_savont.sh` and `test_savont_pooled.sh` benchmark [savont](https://github.com/bluenote-1577/savont) as a potential replacement for the UNOISE3 denoising step (step 04). savont uses SNPmer-based clustering designed for long-read indel error profiles, as opposed to UNOISE3's substitution-focused error model.
+
+### Results
+
+| Mode | ASVs | Notes |
+|---|---|---|
+| Per-sample (`test_savont.sh`) | 427 | Artifact — independent per-sample runs produce overlapping but inconsistent ASV sets that inflate counts on merge ([savont issue #2](https://github.com/bluenote-1577/savont/issues/2)) |
+| Pooled (`test_savont_pooled.sh`) | 29 | Biologically plausible; consistent with UNOISE3's 14 ZOTUs + rare tail |
+
+The pooled run also provided the first quantitative estimate of chloroplast read fraction: **51% of pooled reads map to I. galbana chloroplast** at this sequencing depth.
+
+### Proposed pipeline integration (not yet implemented)
+
+The natural integration preserves the sample-tagging strategy already in place:
+
+1. **Step 03 unchanged** — `pooled/all_samples.fastq` with `sample=barcodeXX` read headers
+2. **Replace step 04** — `savont asv pooled/all_samples.fastq --output-dir results/savont_pooled --fl-16s`
+3. **Step 05 unchanged** — `usearch -otutab pooled/all_samples.fastq -zotus results/savont_pooled/final_asvs.fasta`
+
+The `sample=` tags survive through savont (it does not strip read headers), so usearch `-otutab` can still demultiplex per-sample abundances from the mapping. Steps 06–10 are unaffected.
+
+Next step: re-run `test_savont_pooled.sh` using `pooled/all_samples.fastq` (tagged reads from step 03) as input instead of raw trimmed files, then run `05_otutab.sh` against `final_asvs.fasta` and compare the per-sample table to the UNOISE3 result.
+
+---
+
 ## Supplementary scripts
 
 `supplementary/` contains scripts for a potential future analysis: per-species 16S copy number

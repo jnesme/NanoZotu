@@ -101,28 +101,28 @@ with open(out_path, 'w') as out:
                 out.write(f'{header}\n{sequence}\n')
                 n_written += 1
 
-print(f"  GTDB sequences written: {n_written}")
-print(f"  GTDB sequences skipped: {n_skipped}")
+    print(f"  GTDB sequences written: {n_written}")
+    print(f"  GTDB sequences skipped: {n_skipped}")
 
-# Append SILVA organellar sequences (Chloroplast + Mitochondria lineages).
-# SILVA file is already in NanoASV-compatible singleline format; append as-is.
-# Use ';Chloroplast;' (both semicolons) to match the Chloroplast lineage node
-# without matching Chloroplastida (eukaryotic nuclear sequences).
-n_organellar = 0
-with open(silva_fasta) as f:
-    include = False
-    for line in f:
-        line = line.rstrip()
-        if not line:
-            continue
-        if line.startswith('>'):
-            include = ';Chloroplast;' in line or ';Mitochondria' in line
+    # Append SILVA organellar sequences (Chloroplast + Mitochondria lineages).
+    # SILVA file is already in NanoASV-compatible singleline format; append as-is.
+    # Use ';Chloroplast;' (both semicolons) to match the Chloroplast lineage node
+    # without matching Chloroplastida (eukaryotic nuclear sequences).
+    n_organellar = 0
+    with open(silva_fasta) as f:
+        include = False
+        for line in f:
+            line = line.rstrip()
+            if not line:
+                continue
+            if line.startswith('>'):
+                include = ';Chloroplast;' in line or ';Mitochondria' in line
+                if include:
+                    n_organellar += 1
             if include:
-                n_organellar += 1
-        if include:
-            out.write(f'{line}\n')
+                out.write(f'{line}\n')
 
-print(f"  SILVA organellar appended: {n_organellar}")
+    print(f"  SILVA organellar appended: {n_organellar}")
 PYEOF
 
 echo ""
