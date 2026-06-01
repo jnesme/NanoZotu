@@ -61,8 +61,7 @@ trim_barcode() {
 
     cutadapt \
         -j "$CUTADAPT_THREADS" \
-        -g "$PRIMER_FWD" \
-        -a "$PRIMER_RC_REV" \
+        -g "${PRIMER_FWD}...${PRIMER_RC_REV}" \
         --revcomp \
         --discard-untrimmed \
         --minimum-length "$MIN_LEN" \
