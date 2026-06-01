@@ -3,7 +3,6 @@
 #BSUB -q hpcspecial
 #BSUB -n 20
 #BSUB -R "span[hosts=1] rusage[mem=410]"
-#BSUB -M 8500MB
 #BSUB -W 4:00
 #BSUB -u jnesme@gmail.com
 #BSUB -N
