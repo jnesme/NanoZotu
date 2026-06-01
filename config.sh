@@ -4,14 +4,16 @@
 # Edit this file to adapt the pipeline to a new project.
 # All scripts source this file automatically.
 #
-# NOTE: LSF job headers (#BSUB lines) in 07_elusimicrobiota_tree.sh and
-# 10_nanoasv.sh cannot use shell variables and must be edited directly.
-# LSF scripts also require PROJECT_DIR set to an absolute path — that is
-# the one hardcoded value that remains in those scripts.
+# NOTE: LSF job headers (#BSUB lines) cannot use shell variables and must be
+# edited directly in each script (queue, email, resources).
 
 # =============================================================================
 # System
 # =============================================================================
+
+# Absolute path to the project root — used by all scripts for I/O paths.
+# Update this when deploying to a new machine or directory.
+PROJECT_DIR="/work3/josne/github/NanoZotu"
 
 # Conda environment for steps 01–07 (read QC, UNOISE3, taxonomy, tree)
 CONDA_ENV_MAIN="qiime2-amplicon-2026.1"

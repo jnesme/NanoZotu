@@ -129,15 +129,19 @@ NANOASV_PATH="/path/to/NanoASV"           # absolute path to NanoASV clone
 Update primers, size filter, and thresholds if your amplicon target differs
 from full-length 16S (V1–V9, 27F/1492R).
 
-### 5. Edit the LSF script
+### 5. Edit the LSF scripts
 
-In `10_nanoasv.sh`, set `PROJECT_DIR` to the absolute path of your project
-clone and update the `#BSUB` headers for your HPC environment (queue name,
-email, walltime):
+Update the `#BSUB` headers (queue, email, walltime) directly in each LSF
+script (`02`, `03`, `05`, `10`). These cannot use shell variables.
+
+The `source` line at the top of each LSF script hardcodes the path to
+`config.sh` — update it to match your clone location if it differs from
+the default. `PROJECT_DIR` itself is defined in `config.sh` and propagates
+automatically from there.
 
 ```bash
-# Change this line in 10_nanoasv.sh:
-PROJECT_DIR="/absolute/path/to/NanoZotu"
+# In each LSF script — update if your path differs:
+source "/absolute/path/to/NanoZotu/config.sh"
 
 # Update these headers for your HPC:
 #BSUB -q your_queue
@@ -196,14 +200,9 @@ NANOASV_SUBSAMPLING=100000
 NANOASV_SAM_QUAL=0
 ```
 
-Scripts 01–09 source `config.sh` automatically relative to their own location. The LSF script (`10_nanoasv.sh`) additionally requires `PROJECT_DIR` to be set as an absolute path — this is the **only line that must be edited directly in that script**, since LSF copies it to `/tmp` before execution and relative paths are not reliable:
+Scripts 01–09 source `config.sh` automatically. LSF scripts (`02`, `03`, `05`, `10`) use a hardcoded absolute `source` path at the top of the script — update this line if your clone is in a different location. `PROJECT_DIR` is defined in `config.sh` and does not need to be set in individual scripts.
 
-```bash
-# In 10_nanoasv.sh — change this line:
-PROJECT_DIR="/work3/josne/Projects/AstaMSc_GRF_Igalbana"
-```
-
-The `#BSUB` headers (queue, email, resources) in script 10 also require manual editing for your HPC environment.
+The `#BSUB` headers (queue, email, resources) in each LSF script also require manual editing for your HPC environment.
 
 ---
 

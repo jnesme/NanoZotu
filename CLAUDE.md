@@ -19,8 +19,8 @@ All project-specific parameters are in config.sh (project root). Scripts source 
 Key parameters: PRIMER_FWD/REV/RC_REV, MIN_LEN/MAX_LEN, MINSIZE_MIN/MAX/WORKING,
 BLAST_IDENTITY_THRESHOLD, BLAST_EVALUE_THRESHOLD, NANOASV_MINAB/SUBSAMPLING/SAM_QUAL,
 CONDA_ENV_MAIN, CONDA_ENV_NANOASV, NANOASV_PATH.
-LSF script (10) additionally requires PROJECT_DIR hardcoded as an absolute path in the script body.
-#BSUB headers (queue, email) must also be edited directly in 10.
+PROJECT_DIR is defined in config.sh (single source of truth). LSF scripts source config.sh via a hardcoded absolute path (unavoidable — LSF copies scripts to /tmp).
+#BSUB headers (queue, email) must also be edited directly in each LSF script.
 
 ## Pipeline overview
 01 → 02 → 03 → 04 → 05 → 06

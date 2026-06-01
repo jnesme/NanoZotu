@@ -25,7 +25,7 @@
 
 set -euo pipefail
 
-PROJECT_DIR="/work3/josne/github/NanoZotu"
+source "/work3/josne/github/NanoZotu/config.sh"
 SILVA_DB="/work3/josne/Databases/silva-138.2"
 TRIMMED_DIR="$PROJECT_DIR/fastq_trimmed"
 OUT_DIR="$PROJECT_DIR/results/savont"
