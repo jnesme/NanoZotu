@@ -3,7 +3,7 @@
 #BSUB -q hpcspecial
 #BSUB -J nanoasv
 #BSUB -n 20
-#BSUB -R "span[hosts=1] rusage[mem=8GB]"
+#BSUB -R "span[hosts=1] rusage[mem=425]"
 #BSUB -M 8500MB
 #BSUB -W 8:00
 #BSUB -u jnesme@gmail.com

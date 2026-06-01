@@ -3,7 +3,7 @@
 #BSUB -q hpcspecial
 #BSUB -J trim_primers
 #BSUB -n 20
-#BSUB -R "span[hosts=1] rusage[mem=4GB]"
+#BSUB -R "span[hosts=1] rusage[mem=225]"
 #BSUB -M 4500MB
 #BSUB -W 1:00
 #BSUB -u jnesme@gmail.com
