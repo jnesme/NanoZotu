@@ -1,4 +1,17 @@
-#!/usr/bin/env bash
+#!/bin/bash
+### General options
+#BSUB -q hpcspecial
+#BSUB -J dereplicate
+#BSUB -n 1
+#BSUB -R "span[hosts=1] rusage[mem=32GB]"
+#BSUB -M 34000MB
+#BSUB -W 4:00
+#BSUB -u jnesme@gmail.com
+#BSUB -B
+#BSUB -N
+#BSUB -o logs/dereplicate_%J.out
+#BSUB -e logs/dereplicate_%J.err
+
 # Pool all trimmed barcode reads, then dereplicate the combined dataset.
 # This ensures ASVs (ZOTUs) are resolved consistently across all samples.
 #
@@ -12,18 +25,23 @@
 # Output:
 #   pooled/all_samples.fastq       — pooled reads (intermediate)
 #   pooled/all_samples_derep.fasta — dereplicated sequences, ready for unoise3
+#
+# Usage: bsub < 03_dereplicate.sh
 
 set -euo pipefail
 
-source "$(dirname "${BASH_SOURCE[0]}")/config.sh"
+# PROJECT_DIR must be an absolute path — LSF copies this script to /tmp before
+# execution, so relative paths and ${BASH_SOURCE[0]} are not reliable.
+PROJECT_DIR="/work3/josne/github/NanoZotu"
+source "$PROJECT_DIR/config.sh"
 
 # Activate conda environment
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate "$CONDA_ENV_MAIN"
 
-INPUT_DIR="fastq_trimmed"
-POOLED_DIR="pooled"
-LOG_DIR="logs/derep"
+INPUT_DIR="$PROJECT_DIR/fastq_trimmed"
+POOLED_DIR="$PROJECT_DIR/pooled"
+LOG_DIR="$PROJECT_DIR/logs/derep"
 
 mkdir -p "$POOLED_DIR" "$LOG_DIR"
 

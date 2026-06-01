@@ -43,7 +43,7 @@ Quick start:
 # Sequential: merge chunks → trim → pool → denoise
 bash 01_concatenate_barcodes.sh
 bsub < 02_trim_primers.sh    # wait for completion
-bash 03_dereplicate.sh
+bsub < 03_dereplicate.sh     # wait for completion
 bash 04_unoise3.sh
 
 # Parallel: after step 04, three independent tasks can run simultaneously
@@ -311,7 +311,7 @@ Key parameters:
 Pools all barcode reads into a single FASTQ (tagging each read header with `sample=barcodeXX` for downstream sample assignment), then dereplicates the pooled dataset. Pooling before dereplication is required so that ZOTUs are defined consistently across all samples.
 
 ```bash
-bash 03_dereplicate.sh
+bsub < 03_dereplicate.sh
 ```
 
 **Input:** `fastq_trimmed/barcode*.fastq.gz`  
