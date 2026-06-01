@@ -2,7 +2,7 @@
 #BSUB -J savont_pooled
 #BSUB -q hpcspecial
 #BSUB -n 20
-#BSUB -R "span[hosts=1] rusage[mem=32768]"
+#BSUB -R "span[hosts=1] rusage[mem=1638]"
 #BSUB -M 34000MB
 #BSUB -W 2:00
 #BSUB -u jnesme@gmail.com
