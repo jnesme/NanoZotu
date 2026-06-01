@@ -172,14 +172,15 @@ All project-specific parameters live in **`config.sh`** in the project root. Edi
 
 ```bash
 # System
-CONDA_ENV_MAIN="qiime2-amplicon-2026.1"   # conda env for steps 01–07
-CONDA_ENV_NANOASV="NanoASV"               # conda env for step 10
-NANOASV_PATH="/work3/josne/github/NanoASV"
+PROJECT_DIR="/work3/josne/github/NanoZotu"   # ← update for your machine
+CONDA_ENV_MAIN="qiime2-amplicon-2026.1"       # conda env for steps 01–07
+CONDA_ENV_NANOASV="NanoASV"                   # conda env for step 10
+NANOASV_PATH="/work3/josne/github/NanoASV"    # ← update for your machine
 
 # Primers (step 02)
-PRIMER_FWD="AGRGTTYGATYMTGGCTCAG"         # 27F
-PRIMER_REV="RGYTACCTTGTTACGACTT"          # 1492R (reference)
-PRIMER_RC_REV="AAGTCGTAACAAGGTARCY"       # reverse complement of 1492R (cutadapt -a)
+PRIMER_FWD="AGRGTTYGATYMTGGCTCAG"    # 27F
+PRIMER_REV="RGYTACCTTGTTACGACTT"     # 1492R (reference only)
+PRIMER_RC_REV="AAGTCGTAACAAGGTARCY"  # reverse complement of 1492R
 
 # Read QC (step 02)
 MIN_LEN=1300
@@ -188,10 +189,11 @@ MAX_LEN=1800
 # UNOISE3 (step 04)
 MINSIZE_MIN=1
 MINSIZE_MAX=8
-MINSIZE_WORKING=3    # working threshold — propagates to steps 05, 06, 07, 09, 10
+MINSIZE_WORKING=3    # working threshold — propagates to steps 05, 06, 09, 10
 
 # Taxonomy (steps 06 and 09)
-BLAST_IDENTITY_THRESHOLD=97
+BLAST_IDENTITY_THRESHOLD=97      # minimum % identity for genus-level assignment
+BLAST_SPECIES_THRESHOLD=98.7     # minimum % identity for species-level (Kim et al. 2014)
 BLAST_EVALUE_THRESHOLD="1e-10"
 
 # NanoASV (step 10)
@@ -200,9 +202,14 @@ NANOASV_SUBSAMPLING=100000
 NANOASV_SAM_QUAL=0
 ```
 
-Scripts 01–09 source `config.sh` automatically. LSF scripts (`02`, `03`, `05`, `10`) use a hardcoded absolute `source` path at the top of the script — update this line if your clone is in a different location. `PROJECT_DIR` is defined in `config.sh` and does not need to be set in individual scripts.
+All scripts source `config.sh` automatically. Interactive scripts locate it relative to their own path; LSF scripts (`02`, `03`, `05`, `10`) source it via a hardcoded absolute path at the top of each script — **you must update that `source` line in each LSF script** when deploying to a new machine:
 
-The `#BSUB` headers (queue, email, resources) in each LSF script also require manual editing for your HPC environment.
+```bash
+# At the top of each LSF script — update to match your clone location:
+source "/absolute/path/to/NanoZotu/config.sh"
+```
+
+> `#BSUB` headers (queue, email, resources) cannot use shell variables and must also be edited directly in each LSF script.
 
 ---
 
