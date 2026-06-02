@@ -3,7 +3,7 @@
 #BSUB -q hpcspecial
 #BSUB -J otutab
 #BSUB -n 20
-#BSUB -R "span[hosts=1] rusage[mem=50]"
+#BSUB -R "span[hosts=1] rusage[mem=1024]"
 #BSUB -W 1:00
 #BSUB -u jnesme@gmail.com
 #BSUB -B
@@ -23,12 +23,13 @@
 # usearch -otutab assigns reads to samples via the "sample=" tag in read headers
 # (added during pooling in 03_dereplicate.sh).
 #
-# Defaults to pooled/zotus_minsize${MINSIZE_WORKING}.fasta from config.sh.
-# Override by passing a ZOTU FASTA as argument (interactive use only):
-#   bash 05_otutab.sh pooled/zotus_minsize5.fasta
+# Uses pooled/zotus_minsize${MINSIZE_WORKING}.fasta from config.sh.
+# To change threshold: update MINSIZE_WORKING in config.sh, then resubmit.
+# NOTE: bsub stdin redirection does not support script arguments —
+#       do not use: bsub < 05_otutab.sh some_file.fasta (argument is ignored by bsub).
 #
 # Input:  pooled/all_samples.fastq
-#         pooled/zotus_minsize${MINSIZE_WORKING}.fasta  (or argument)
+#         pooled/zotus_minsize${MINSIZE_WORKING}.fasta
 # Output: results/zotu_table_zotus_minsize${MINSIZE_WORKING}.txt
 #
 # Usage: bsub < 05_otutab.sh
