@@ -45,7 +45,7 @@ MAX_LEN=1800
 
 MINSIZE_MIN=1           # lower bound of minsize sweep
 MINSIZE_MAX=8           # upper bound of minsize sweep
-MINSIZE_WORKING=3       # working threshold — used by steps 05, 06, 07, 09, 10
+MINSIZE_WORKING=2       # working threshold — used by steps 05, 06, 07, 09, 10
 
 # =============================================================================
 # Taxonomy  (steps 06 and 09)
